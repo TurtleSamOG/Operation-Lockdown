@@ -1,0 +1,8 @@
+:root { font-family: system-ui, sans-serif; color-scheme: dark; }
+body { margin: 0; background: #0b1424; color: #eef4ff; }
+main { max-width: 900px; margin: 0 auto; padding: 2rem 1.25rem; }
+header { padding: 1.1rem 1.25rem; background: #15243c; }
+a { color: #7dd3fc; }
+nav { display: flex; flex-wrap: wrap; gap: 1rem; }
+.card { background: #162740; border: 1px solid #36506d; border-radius: 12px; padding: 1.25rem; margin: 1rem 0; }
+.muted { color: #acc0d8; }

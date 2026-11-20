@@ -1,0 +1,3 @@
+-- Szymon (Developer 1): implement the actual schema here.
+-- Expected concepts: teams, tasks, validated attempts/results, zone keys.
+-- Do not store plaintext team PINs. Seed fake teams only.
