@@ -1,3 +1,7 @@
-# Public API endpoints — Szymon (Developer 1)
+# Public API — Main System (Szymon)
 
-Implement ONLY the approved PHP endpoints here (login.php, team-state.php, submit-task.php, complete-zone.php, leaderboard.php). Use `require` to load backend logic/config from `main-system/` outside `public/`. Do not expose source, credentials, or admin operations without authorization.
+These PHP endpoints are implemented and load backend logic from `main-system/lib/` outside the web root. Each zone should use `public/assets/js/api.js`.
+
+`session.php`, `login.php`, `logout.php`, `team-state.php`, `tasks.php`, `submit-task.php`, `complete-zone.php`, `leaderboard.php`, `finale-questions.php`, `submit-finale.php`, `facilitator-login.php`, `facilitator-state.php`, `facilitator-action.php`.
+
+See `docs/API-CONTRACT.md`. Run `database/schema.sql`, `database/seed.php`, `database/create-admin.php` first.

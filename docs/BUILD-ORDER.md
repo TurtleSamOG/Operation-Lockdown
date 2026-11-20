@@ -5,7 +5,7 @@
 2. Work on your own `dev/...` branch created from the shared `main` starter.
 3. Do not change shared API names without notifying the group.
 
-## Szymon (Developer 1) — Main System
+## Szymon (Developer 1) — Main System (code provided; test and integrate)
 1. Make `/` home screen with team choice, PIN field and Start button.
 2. Set up local database and `database/schema.sql` (teams, tasks, attempts, keys).
 3. Build database connector using local environment config.
@@ -46,3 +46,6 @@
 - All three zones can be played in any order.
 - All keys appear on the leaderboard and unlock the finale.
 - A full 25-minute run of each zone and the 9-minute finale works with first-time testers.
+
+## State of the supplied build
+The main system implementation is present. Your next steps: (1) create/import the local database, (2) configure `.env`, (3) seed team PINs and facilitator account, (4) test `/system-demo/`, (5) open a Pull Request into `main`. Vanessa, Albert and Alex continue independently with their assigned pages using `api.js`.

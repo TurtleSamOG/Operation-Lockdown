@@ -1,3 +1,99 @@
--- Szymon (Developer 1): implement the actual schema here.
--- Expected concepts: teams, tasks, validated attempts/results, zone keys.
--- Do not store plaintext team PINs. Seed fake teams only.
+-- Run with a LOCAL database admin, not the limited application user.
+-- CREATE DATABASE operation_lockdown_dev CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+-- USE operation_lockdown_dev;
+
+CREATE TABLE IF NOT EXISTS `groups` (
+  id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+  slug VARCHAR(32) NOT NULL UNIQUE,
+  display_name VARCHAR(80) NOT NULL,
+  pin_hash VARCHAR(255) NOT NULL,
+  active TINYINT(1) NOT NULL DEFAULT 1,
+  created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+) ENGINE=InnoDB;
+
+CREATE TABLE IF NOT EXISTS working_units (
+  id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+  group_id INT UNSIGNED NOT NULL,
+  unit_code VARCHAR(12) NOT NULL,
+  UNIQUE KEY unique_group_unit (group_id, unit_code),
+  CONSTRAINT fk_unit_group FOREIGN KEY (group_id) REFERENCES `groups`(id) ON DELETE CASCADE
+) ENGINE=InnoDB;
+
+CREATE TABLE IF NOT EXISTS tasks (
+  id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+  task_id VARCHAR(80) NOT NULL UNIQUE,
+  zone VARCHAR(16) NOT NULL,
+  station VARCHAR(8) NOT NULL,
+  title VARCHAR(150) NOT NULL,
+  pass_percent TINYINT UNSIGNED NOT NULL DEFAULT 70,
+  required TINYINT(1) NOT NULL DEFAULT 1,
+  max_scored_attempts INT UNSIGNED NOT NULL DEFAULT 3,
+  INDEX zone_idx (zone)
+) ENGINE=InnoDB;
+
+CREATE TABLE IF NOT EXISTS task_attempts (
+  id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+  group_id INT UNSIGNED NOT NULL,
+  unit_id INT UNSIGNED NOT NULL,
+  task_ref INT UNSIGNED NOT NULL,
+  answers_json JSON NOT NULL,
+  score TINYINT UNSIGNED NOT NULL,
+  passed TINYINT(1) NOT NULL,
+  scored TINYINT(1) NOT NULL,
+  created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  INDEX by_group_task (group_id, task_ref),
+  CONSTRAINT fk_attempt_group FOREIGN KEY (group_id) REFERENCES `groups`(id) ON DELETE CASCADE,
+  CONSTRAINT fk_attempt_unit FOREIGN KEY (unit_id) REFERENCES working_units(id) ON DELETE CASCADE,
+  CONSTRAINT fk_attempt_task FOREIGN KEY (task_ref) REFERENCES tasks(id) ON DELETE CASCADE
+) ENGINE=InnoDB;
+
+CREATE TABLE IF NOT EXISTS task_results (
+  group_id INT UNSIGNED NOT NULL,
+  task_ref INT UNSIGNED NOT NULL,
+  best_score TINYINT UNSIGNED NOT NULL DEFAULT 0,
+  passed TINYINT(1) NOT NULL DEFAULT 0,
+  last_unit_id INT UNSIGNED NULL,
+  updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (group_id, task_ref),
+  CONSTRAINT fk_result_group FOREIGN KEY (group_id) REFERENCES `groups`(id) ON DELETE CASCADE,
+  CONSTRAINT fk_result_task FOREIGN KEY (task_ref) REFERENCES tasks(id) ON DELETE CASCADE
+) ENGINE=InnoDB;
+
+CREATE TABLE IF NOT EXISTS recovery_keys (
+  group_id INT UNSIGNED NOT NULL,
+  zone VARCHAR(16) NOT NULL,
+  key_code VARCHAR(40) NOT NULL,
+  granted_by VARCHAR(20) NOT NULL DEFAULT 'system',
+  awarded_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (group_id, zone),
+  CONSTRAINT fk_key_group FOREIGN KEY (group_id) REFERENCES `groups`(id) ON DELETE CASCADE
+) ENGINE=InnoDB;
+
+CREATE TABLE IF NOT EXISTS facilitators (
+  id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+  username VARCHAR(80) NOT NULL UNIQUE,
+  password_hash VARCHAR(255) NOT NULL
+) ENGINE=InnoDB;
+
+CREATE TABLE IF NOT EXISTS event_settings (
+  setting_key VARCHAR(40) PRIMARY KEY,
+  setting_value VARCHAR(255) NOT NULL
+) ENGINE=InnoDB;
+
+CREATE TABLE IF NOT EXISTS facilitator_audit (
+  id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+  facilitator_id INT UNSIGNED NOT NULL,
+  action_name VARCHAR(50) NOT NULL,
+  details_json JSON NOT NULL,
+  created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  CONSTRAINT fk_audit_facilitator FOREIGN KEY (facilitator_id) REFERENCES facilitators(id)
+) ENGINE=InnoDB;
+
+CREATE TABLE IF NOT EXISTS finale_results (
+  group_id INT UNSIGNED PRIMARY KEY,
+  best_score TINYINT UNSIGNED NOT NULL DEFAULT 0,
+  completed TINYINT(1) NOT NULL DEFAULT 0,
+  attempts INT UNSIGNED NOT NULL DEFAULT 0,
+  updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  CONSTRAINT fk_finale_group FOREIGN KEY (group_id) REFERENCES `groups`(id) ON DELETE CASCADE
+) ENGINE=InnoDB;
