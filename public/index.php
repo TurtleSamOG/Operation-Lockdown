@@ -1,34 +1,29 @@
-<!doctype html>
-<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Operation Lockdown | Mission Hub</title><link rel="stylesheet" href="/assets/css/app.css"><link rel="stylesheet" href="/assets/css/system.css"></head>
-<body><header><strong>OPERATION LOCKDOWN 2.0</strong><nav><a href="/leaderboard/">Live scoreboard</a><a href="/facilitator/">Facilitators</a></nav></header>
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="theme-color" content="#08131f"><meta name="description" content="Operation Lockdown 2.0 — an interactive T-Level computing experience"><link rel="icon" type="image/svg+xml" href="/assets/img/favicon.svg"><title>Mission Control | Operation Lockdown 2.0</title><link rel="stylesheet" href="/assets/css/app.css"><link rel="stylesheet" href="/assets/css/system.css"><link rel="stylesheet" href="/assets/css/polish.css"></head>
+<body class="page-hub"><header class="site-header"><a class="brand" href="/" aria-label="Operation Lockdown — home"><span class="brand-mark"><img src="/assets/img/shield-mark.svg" alt="" width="42" height="42"></span><span class="brand-text"><strong>OPERATION <span>LOCKDOWN</span></strong><small>T-LEVEL EXPERIENCE <b class="brand-version">/ 2.0</b></small></span></a><nav aria-label="Main navigation"><a href="/" aria-current="page">Mission hub</a><a href="/leaderboard/" >Live scores</a><a href="/facilitator/" >Staff control</a><span class="connection-indicator" data-connection-status="checking" data-status="checking" role="status">Checking API</span></nav></header>
 <main class="system">
-  <div class="eyebrow">T-Level Taster Day • Cyber Horizons</div>
-  <h1 class="hero">Mission Control</h1>
-  <p class="subtitle">Three rotating groups. Three connected challenges. One company to restore. Sign in using your group access code on both computers in your working unit.</p>
-  <div class="layout">
-    <section class="system-card" id="loginCard">
-      <h2>Join your group</h2>
-      <form id="loginForm">
-        <label for="group">Rotation group</label><select id="group" required><option value="alpha">Group Alpha</option><option value="bravo">Group Bravo</option><option value="charlie">Group Charlie</option></select>
-        <label for="unit">Working unit (use the same unit on both PCs)</label><select id="unit" required><option value="1">Unit 1</option><option value="2">Unit 2</option><option value="3">Unit 3</option></select>
-        <label for="workstation">Which computer are you on?</label><select id="workstation" required><option value="A">Workstation A — investigation / training</option><option value="B">Workstation B — testing / response</option></select>
-        <label for="pin">Group access code</label><input id="pin" type="password" autocomplete="off" required minlength="8" placeholder="Code from your facilitator">
-        <div class="actions"><button type="submit" class="action">Join mission</button></div>
-      </form>
-      <p id="loginMessage" class="message" role="status"></p>
-      <p class="note">Example: Alpha Unit 2 has two computers: one for activity A and one for activity B. Both sign in as Alpha / Unit 2.</p>
-    </section>
-    <section class="system-card hidden" id="teamCard">
-      <div class="row"><h2 id="welcome">Group dashboard</h2><button id="logout" class="action small secondary">Switch group</button></div>
-      <p class="muted" id="unitLabel"></p>
-      <div class="grid3"><div class="stat"><div class="muted small">Overall score</div><div id="totalScore" class="stat-number">0</div><div class="tiny muted">Out of 300</div></div><div class="stat"><div class="muted small">Recovery keys</div><div id="keysCount" class="stat-number">0 / 3</div></div><div class="stat"><div class="muted small">Final mission</div><div id="finaleStatus" class="pill warn">Locked</div></div></div>
-      <div id="zoneProgress" style="margin-top:1rem"></div>
-    </section>
-    <section class="system-card" id="zonesCard">
-      <h2>Choose your current zone</h2><p class="muted">The facilitator will tell you which zone to visit during each rotation. Each zone has two linked workstation activities.</p>
-      <div class="zone-list"><a class="zone-link" href="/train/"><strong>01 · Train It</strong>AI security lab</a><a class="zone-link" href="/fix/"><strong>02 · Fix It</strong>Employee portal</a><a class="zone-link" href="/defend/"><strong>03 · Defend It</strong>Office simulator</a></div>
-      <div class="actions"><a class="action secondary" href="/finale/">Final recovery mission</a><a class="action secondary" href="/leaderboard/">Live leaderboard</a></div>
-    </section>
-  </div>
-</main>
-<script type="module" src="/assets/js/hub.js"></script></body></html>
+<div class="topline"><span><span class="topline-dot"></span> MISSION OPERATIONS CENTRE</span><span>THREE ZONES &nbsp;·&nbsp; ONE CONNECTED EXPERIENCE</span></div>
+<section class="hero-grid mission-hero">
+<div class="hero-copy"><div class="page-meta"><span class="eyebrow">T-Level Taster Day / Mission 001</span><span class="meta-tag">INTERACTIVE SIMULATION</span></div>
+<h1 class="hero">Systems down.<br><span class="accent">You're in control.</span></h1>
+<p class="subtitle hero-description">A fictional company is under attack. Train its security system, repair its employee portal and contain the incident. Every validated decision brings your team closer to recovery.</p>
+<div class="mission-strip"><span class="mission-chip"><i>01</i> TRAIN IT</span><span class="mission-chip"><i>02</i> FIX IT</span><span class="mission-chip"><i>03</i> DEFEND IT</span></div>
+<div class="hero-footnote"><span class="mini-led"></span> LIVE TEAM PROGRESS &nbsp;/&nbsp; THREE RECOVERY KEYS REQUIRED</div>
+</div>
+<aside class="hero-visual" aria-label="Illustration of the fictional company network"><div class="visual-top"><span>NETWORK OVERVIEW</span><span class="visual-live">● SIMULATED ENVIRONMENT</span></div><img src="/assets/img/mission-map.svg" alt="Illustration of a digitally connected office building"/><div class="visual-footer"><span><b class="critical-dot"></b> INCIDENT ACTIVE</span><span>SECURITY OPERATIONS / 01</span></div></aside>
+</section>
+<div class="metric-strip" aria-label="Event overview"><div><span class="metric-icon">◈</span><span><b>03</b><small>ROTATION GROUPS</small></span></div><div><span class="metric-icon">▣</span><span><b>03</b><small>CHALLENGE ZONES</small></span></div><div><span class="metric-icon">⌁</span><span><b>06+</b><small>CONNECTED WORKSTATIONS</small></span></div><div><span class="metric-icon">◇</span><span><b>LIVE</b><small>SCORES &amp; RECOVERY KEYS</small></span></div></div>
+<div class="layout main-layout">
+<section class="system-card login-panel" id="loginCard"><div class="section-head"><span class="section-tag">01 / AUTHENTICATION</span><span class="panel-step">SECURE ACCESS</span></div><h2>Join your mission.</h2><p class="card-intro">Use the group code from your facilitator. Both computers in a working unit use the same group and unit.</p>
+<form id="loginForm"><div class="field-grid"><div><label for="group">Rotation group</label><select id="group" required><option value="alpha">Group Alpha</option><option value="bravo">Group Bravo</option><option value="charlie">Group Charlie</option></select></div><div><label for="unit">Working unit</label><select id="unit" required><option value="1">Unit 1</option><option value="2">Unit 2</option><option value="3">Unit 3</option></select></div></div>
+<label for="workstation">Workstation assignment</label><select id="workstation" required><option value="A">Computer A — investigate / prepare</option><option value="B">Computer B — test / respond</option></select>
+<label for="pin">Group access code</label><div class="secret-field"><input id="pin" type="password" autocomplete="off" minlength="8" maxlength="16" required placeholder="Enter the code provided by staff"><button id="togglePin" type="button" class="secret-toggle" aria-label="Show access code">Show</button></div>
+<div class="actions"><button type="submit" id="loginSubmit" class="action grow">Connect to mission <span class="btn-arrow" aria-hidden="true">↗</span></button></div></form><p id="loginMessage" class="message" aria-live="polite" role="status"></p><p class="note login-note">If your login fails, the reason will appear above. Recheck the group, access code and workstation selection.</p></section>
+<section class="system-card team-panel hidden" id="teamCard"><div class="section-head"><span class="section-tag">01 / AUTHENTICATED</span><span class="pill good">SESSION CONNECTED</span></div><div class="row"><h2 id="welcome">Group dashboard</h2><button id="logout" type="button" class="action small secondary">Switch group</button></div><p class="muted" id="unitLabel"></p><div class="grid3"><div class="stat"><div class="muted small">GROUP SCORE</div><div id="totalScore" class="stat-number">0</div><div class="tiny muted">OUT OF 300</div></div><div class="stat"><div class="muted small">RECOVERY KEYS</div><div id="keysCount" class="stat-number">0 / 3</div><div class="tiny muted">COLLECTED</div></div><div class="stat"><div class="muted small">FINAL MISSION</div><div id="finaleStatus" class="pill warn" style="margin-top:16px">Locked</div></div></div><div id="zoneProgress" style="margin-top:10px"></div><p id="teamMessage" class="message" role="status" aria-live="polite"></p></section>
+<section class="system-card zone-panel" id="zonesCard"><div class="section-head"><span class="section-tag">02 / MISSION SELECT</span><span class="panel-step">CHOOSE YOUR STATION</span></div><h2>Enter a challenge zone.</h2><p class="card-intro">Your facilitator will tell you which zone to visit during this rotation. Your group progress is shared across computers.</p>
+<div class="zone-list"><a class="zone-link zone-train" href="/train/"><span class="zone-icon" aria-hidden="true">✳</span><span class="zone-number">ZONE 01 / ARTIFICIAL INTELLIGENCE</span><strong>Train It</strong><span>Build a security detector</span><span class="zone-end">Enter AI lab</span></a><a class="zone-link zone-fix" href="/fix/"><span class="zone-icon" aria-hidden="true">{&nbsp;}</span><span class="zone-number">ZONE 02 / SOFTWARE</span><strong>Fix It</strong><span>Repair the employee portal</span><span class="zone-end">Open the portal</span></a><a class="zone-link zone-defend" href="/defend/"><span class="zone-icon" aria-hidden="true">⌘</span><span class="zone-number">ZONE 03 / CYBER DEFENCE</span><strong>Defend It</strong><span>Control the unfolding crisis</span><span class="zone-end">Launch simulation</span></a></div>
+<div class="actions zone-actions"><a class="action secondary" href="/finale/">Final recovery mission ↗</a><a class="action secondary" href="/leaderboard/">Live team scores ↗</a></div></section>
+</div>
+<section class="system-card diagnostic-panel" id="diagnosticPanel"><div class="diagnostic-header"><div><span class="section-tag">03 / SYSTEM DIAGNOSTICS</span><h2>Connection check</h2><p class="card-intro">Run a quick check to verify that PHP responds and the leaderboard can read the database. No scores are changed.</p></div><button class="action secondary" id="runDiagnostics" type="button">Run checks ↗</button></div>
+<div class="diagnostic-grid"><div><span class="diagnostic-label">APPLICATION API</span><strong id="apiTestStatus" class="diagnostic-value pending">Not checked</strong></div><div><span class="diagnostic-label">DATABASE / LEADERBOARD</span><strong id="dbTestStatus" class="diagnostic-value pending">Not checked</strong></div><div><span class="diagnostic-label">BROWSER SESSION</span><strong id="sessionTestStatus" class="diagnostic-value pending">Not checked</strong></div></div><p id="diagnosticMessage" role="status" aria-live="polite" class="message"></p><div class="diagnostic-foot"><span id="diagnosticTime">Last checked: never</span><a href="/system-demo/">Open local test bench <span aria-hidden="true">→</span></a></div></section>
+<footer class="site-footer"><span>OPERATION LOCKDOWN 2.0</span><span>TRAIN IT / FIX IT / DEFEND IT</span><span>MISSION CONTROL — T-LEVEL EXPERIENCE</span></footer>
+</main><script src="/assets/js/ui.js" defer></script><script type="module" src="/assets/js/hub.js"></script><script type="module" src="/assets/js/diagnostics.js"></script></body></html>

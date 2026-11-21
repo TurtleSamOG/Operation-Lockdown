@@ -1,0 +1,23 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="800" height="540" viewBox="0 0 800 540" fill="none">
+<defs><linearGradient id="city" x1="0" y1="0" x2="800" y2="540"><stop stop-color="#122A42"/><stop offset="1" stop-color="#091723"/></linearGradient><linearGradient id="pulse" x1="0" y1="0" x2="0" y2="1"><stop stop-color="#73F4D8"/><stop offset="1" stop-color="#13A6B5"/></linearGradient><filter id="glow"><feGaussianBlur stdDeviation="7"/></filter></defs>
+<rect width="800" height="540" rx="12" fill="url(#city)"/>
+<g stroke="#4FAFC6" stroke-opacity=".13" stroke-width="1">
+<path d="M0 55H800M0 110H800M0 165H800M0 220H800M0 275H800M0 330H800M0 385H800M0 440H800M0 495H800"/>
+<path d="M50 0V540M105 0V540M160 0V540M215 0V540M270 0V540M325 0V540M380 0V540M435 0V540M490 0V540M545 0V540M600 0V540M655 0V540M710 0V540M765 0V540"/>
+</g>
+<g transform="translate(124 56)" stroke="#6BBFD2" stroke-width="2" opacity=".4"><path d="M0 120 190 12l193 106-195 116z"/><path d="M190 12V141L0 250M383 118l-195 130v-107L0 120M188 248V350M0 250v100l188 102 195-104V242" opacity=".6"/></g>
+<g transform="translate(266 104)">
+ <path d="M131 11 264 87v155l-133 76L0 242V87L131 11Z" fill="#164457" stroke="#44D6C8" stroke-width="3"/>
+ <path d="m131 11 133 76-133 75L0 87 131 11Z" fill="#1D6170" stroke="#71EBDD" stroke-width="2"/>
+ <path d="M131 162v156M0 87v155l131 76" stroke="#49C3C8" stroke-width="2"/>
+ <path d="m61 123 39 23v45l-39-23zM29 143l23 14v45l-23-14zM62 210l39 23v44l-39-23zM162 199l40-23v43l-40 23zM214 169l29-17v43l-29 17z" fill="#79E9D2" fill-opacity=".3" stroke="#66DFC8" stroke-width="1.2"/>
+ <path d="M132 10V0M132 318v23" stroke="#75F7D9" stroke-width="3" stroke-linecap="round"/>
+</g>
+<g stroke="#65F3DC" stroke-width="2.5" opacity=".78">
+<path d="M397 105V62H560V38"/><path d="M530 280H655V207H746"/><path d="M287 280H155V393H67"/>
+</g>
+<g fill="#64EBD6"><circle cx="560" cy="38" r="6"/><circle cx="746" cy="207" r="6"/><circle cx="67" cy="393" r="6"/></g>
+<g stroke="#71E8D9" stroke-width="2" opacity=".5"><circle cx="397" cy="271" r="178" stroke-dasharray="5 14"/><circle cx="397" cy="271" r="217" stroke-dasharray="2 12"/></g>
+<g fill="#B8FFF0" font-family="ui-monospace,Consolas,monospace" font-size="17" letter-spacing="2"><text x="573" y="37">AI</text><text x="664" y="197">NET</text><text x="61" y="420">OPS</text></g>
+<circle cx="398" cy="268" r="13" fill="#69F0D7" filter="url(#glow)"/><circle cx="398" cy="268" r="8" fill="#C8FFF5"/>
+</svg>
