@@ -1,186 +1,207 @@
-/** Operation Lockdown final mission. All question text/options and scoring come from PHP. */
-import { getSession, getTeamState, getFinaleQuestions, submitFinale } from '/assets/js/api.js';
+/** FINAL RECOVERY MISSION (Operation Lockdown 2.0)
+ * Stage 1 keys (server) → 2 crisis review (server scores) → 3 restoration plan (local simulation)
+ * → 4 final authorisation (existing server-validated finale questions) → 5 SYSTEM RESTORED (server result only).
+ * The server enforces the three-key prerequisite; this page only mirrors it.
+ */
+import {getSession, getTeamState, getFinaleQuestions, submitFinale} from './api.js';
+import {STORY, $, el, fill, text, wait, toast, localStore, describeError} from './mission-core.js';
 
-const $ = id => document.getElementById(id);
-const KEYS = [
-  { zone: 'train', code: 'AI_DEFENCE_ACTIVATED', name: 'AI Defence Activated' },
-  { zone: 'fix', code: 'PORTAL_SECURED', name: 'Portal Secured' },
-  { zone: 'defend', code: 'THREAT_CONTAINED', name: 'Threat Contained' }
-];
-const STORY = {
-  network: { code: 'PHASE 01 / NETWORK DEFENCE', title: 'Re-enable the security perimeter.',
-    subtitle: 'The AI detector is ready, but activating the wrong response could lock out innocent employees.',
-    intel: 'Train It taught you to look for unusual login patterns and balance security with false alarms. The SOC needs your final call.', icon: '◎', service: 'ai' },
-  portal: { code: 'PHASE 02 / EMPLOYEE ACCESS', title: 'Bring the portal back online.',
-    subtitle: 'The staff portal has been patched. Employees need access, but unauthorised visitors must remain outside.',
-    intel: 'Fix It revealed why both permission checks and regression testing matter. Decide whether this release is truly safe.', icon: '⌘', service: 'portal' },
-  response: { code: 'PHASE 03 / INCIDENT CLOSURE', title: 'Verify the office is operational.',
-    subtitle: 'Power has returned and responders report that the incident is contained. One last check stands between the team and a successful recovery.',
-    intel: 'Defend It required evidence, a safe response and a business continuity plan. The recovery needs a controlled handover.', icon: '⬡', service: 'response' }
+const KEYS = ['train', 'fix', 'defend'].map(zone => ({...STORY.keys[zone], label:STORY.keys[zone].zone, zone}));
+const store = localStore('finale');
+const model = {state:null, questions:[], answers:{}, busy:false, polling:false, plan:{order:[], checks:{}}, lastResult:null};
+
+/* ---------- Restoration plan (local simulation, deterministic) ---------- */
+const STEPS = {
+  safe:'Confirm the building is safe and power is stable',
+  network:'Bring up the network core and door control',
+  detector:'Switch the login detector back on (alerts go to analysts)',
+  portal:'Reopen the staff portal using the retested build',
+  data:'Restore files and orders from the tested backup',
+  monitor:'Monitor closely and hold the incident review',
 };
-const FALLBACK = { code: 'RECOVERY PHASE', title: 'Review the recovery decision.', subtitle: 'Review the evidence and coordinate a safe next step with the other workstation.', intel: 'All answers are validated by the server.', icon: '◇', service: null };
-const model = { state:null, questions:[], answers:{}, step:0, busy:false, fetching:false, ready:false, outcome:null };
-const safeNum = value => Number.isFinite(Number(value)) ? Number(value) : 0;
-function text(id, value) { const element = $(id); if (element) element.textContent = String(value); }
-function hide(id, yes) { const element = $(id); if (element) element.hidden = !!yes; }
-function notice(message, mode='info') {
-  const el = $('finale-notice'); el.textContent=message; el.className = `finale-notice finale-${mode}`;
-}
-function toast(message, mode='info') { window.LockdownUI?.notify?.(message,mode); }
-function completed() { return Boolean(model.state?.finale?.completed); }
+const ORDER = ['safe', 'network', 'detector', 'portal', 'data', 'monitor'];
+const WHY = {
+  safe:'Nothing restarts until people are safe and power won’t drop again.',
+  network:'Everything else depends on the network — and door control keeps intruders out.',
+  detector:'Turn monitoring on before reopening services, so any attacker who returns is seen.',
+  portal:'Staff access comes back once monitoring is watching it.',
+  data:'Restore data after the systems that protect it are back.',
+  monitor:'The review comes last — but it must happen.',
+};
+const SYSTEMS = {
+  detector:{name:'AI login detector', zone:'train', options:{
+    tested:'Its test results meet the catch-rate and false-alarm limits', all:'It flags every login from abroad', none:'No check — it worked yesterday'}, right:'tested'},
+  portal:{name:'Staff portal', zone:'fix', options:{
+    colour:'The login page looks right', both:'A guest is blocked AND a permitted employee still gets in', speed:'Pages load quickly'}, right:'both'},
+  office:{name:'Office operations', zone:'defend', options:{
+    restore:'A test restore of the backup has worked, and the incident log is complete', lights:'The lights are back on', backup:'The newest backup exists'}, right:'restore'},
+};
+const PHASES = {
+  network:{title:'Threat detection', system:'detector', icon:'◎'},
+  portal:{title:'Employee access', system:'portal', icon:'⌘'},
+  response:{title:'Office continuity', system:'office', icon:'⬡'},
+};
+function planComplete() { return model.plan.order.join() === ORDER.join() && Object.entries(SYSTEMS).every(([k, s]) => model.plan.checks[k] === s.right); }
+
+/* ---------- Rendering ---------- */
+function notice(message, kind = 'info') { const n = $('fn-banner'); n.textContent = message; n.dataset.kind = kind; }
 function keyCount() { return KEYS.filter(k => model.state?.keys?.includes(k.code)).length; }
-function setCore(restored) {
-  document.body.classList.toggle('finale-restored', !!restored);
-  text('finale-core-icon', restored ? '✓' : '⏻');
-  $('finale-core-label').innerHTML = restored ? 'SYSTEM<br>RESTORED' : 'AWAITING<br>AUTHORISATION';
-  text('finale-system-indicator', restored ? 'ONLINE' : 'OFFLINE');
-}
-function updateStatus() {
+function renderKeys() {
   const s = model.state;
-  text('finale-group', s?.groupName || '—');
-  text('finale-unit', s ? `Working unit ${s.workingUnit ?? '—'}` : 'Log in from Mission Hub');
-  text('finale-workstation', s?.workstation || '—');
-  $('finale-zone-score').replaceChildren(document.createTextNode(String(safeNum(s?.totalScore))+' '));
-  const zonesMax=document.createElement('em');zonesMax.textContent='/ 300';$('finale-zone-score').append(zonesMax);
-  const finalScore = s?.finale?.attempts ? String(safeNum(s.finale.bestScore)) : '—';
-  $('finale-final-score').replaceChildren(document.createTextNode(finalScore+' '));
-  const finalMax=document.createElement('em');finalMax.textContent='/ 100';$('finale-final-score').append(finalMax);
-  text('finale-final-progress', completed() ? 'RESTORATION COMPLETE' : `${safeNum(s?.finale?.attempts)} submission(s) recorded`);
-  const count=keyCount();text('finale-key-count', `${count} / 3 VERIFIED`);
-  KEYS.forEach(k=>{
-    const present=Boolean(s?.keys?.includes(k.code));
-    $(`finale-key-${k.zone}`).classList.toggle('is-unlocked',present);
-    text(`finale-key-label-${k.zone}`,present?'✓ SERVER VERIFIED':'NOT YET RECOVERED');
-  });
-  setCore(completed());
+  fill('fn-keys', KEYS.map(k => { const have = Boolean(s?.keys?.includes(k.code));
+    return el('article', {class:`fn-key ${have ? 'is-on' : ''}`}, el('span', {class:'ol-kicker'}, k.zone.toUpperCase()), el('div', {class:'fn-key-glyph', 'aria-hidden':'true'}, have ? '✓' : '◇'),
+      el('strong', {}, k.name), el('small', {}, have ? 'Server verified' : 'Missing — complete ' + k.label)); }));
+  text('fn-keycount', `${keyCount()} / 3 verified`);
+  text('fn-group', s?.groupName || '—'); text('fn-unit', s ? `Unit ${s.workingUnit ?? '—'} · Workstation ${s.workstation || '—'}` : 'Sign in at the Mission Hub');
+  text('fn-zones', `${Number(s?.totalScore) || 0} / 300`);
+  text('fn-final', s?.finale?.attempts ? `${s.finale.bestScore} / 100` : '— / 100');
+  text('fn-final-sub', s?.finale?.completed ? 'Restoration complete' : `${s?.finale?.attempts || 0} submission(s) recorded`);
 }
-function renderAccess() {
-  if (!model.state) { hide('finale-gate',false);hide('finale-command',true);hide('finale-outcome',true);return; }
-  if (completed()) { renderSuccess();return; }
-  if (!model.ready) {
-    hide('finale-gate',false);hide('finale-command',true);hide('finale-outcome',true);
-    const missing=KEYS.filter(k=>!model.state.keys?.includes(k.code));
-    text('finale-gate-title', 'Restoration protocol sealed.');
-    text('finale-gate-description', `${missing.length} key${missing.length===1?' remains':'s remain'}: ${missing.map(k=>k.name).join(', ')}. Complete the corresponding zones, then refresh. The console also checks automatically.`);
-    notice(`Access pending: ${keyCount()} of 3 recovery keys verified.`, 'warn');return;
-  }
-  hide('finale-gate',true);hide('finale-command',false);hide('finale-outcome',true);
-  notice('All three recovery keys verified. The final command console is unlocked.','good');
-  renderSteps();renderQuestion();
+function renderBriefing() {
+  const s = model.state;
+  const line = k => {
+    const z = s.zones?.[k.zone] || {}, score = s.scores?.[k.zone] || 0;
+    const tone = score >= 90 ? 'Strong result' : score >= 67 ? 'Solid result' : 'Recovered, with gaps';
+    const msg = {train:'The login detector is tuned and validated. Some legitimate staff may still trigger alerts — analysts must verify, not ban.',
+      fix:'The portal patch passed its retest. Access checks protect HR data without locking out staff.',
+      defend:'The office survived the outage. The fake engineer was dealt with and the infected PC contained.'}[k.zone];
+    return el('div', {class:'fn-brief'}, el('span', {class:'ol-kicker'}, `${k.zone} · ${score}/100 · ${z.completed || 0}/${z.total || 3} sign-offs`), el('strong', {}, `${tone}: ${k.name}`), el('p', {}, msg));
+  };
+  fill('fn-briefing', el('p', {class:'fn-ceo'}, el('b', {}, STORY.people.ceo + ': '), `“${s.groupName}, your work today gave us all three recovery keys. Before I switch anything back on, I need a restoration plan I can trust.”`), KEYS.map(line));
 }
-function node(tag, className, content) {
-  const n = document.createElement(tag); if (className) n.className=className;
-  if (content!==undefined) n.textContent=String(content);return n;
+function renderPlan() {
+  const p = model.plan;
+  fill('fn-steps-pick', Object.entries(STEPS).map(([k, l]) => el('button', {type:'button', class:'ol-btn fn-pick', disabled:p.order.includes(k) || model.busy, onclick:() => { p.order.push(k); savePlan(); renderPlan(); }}, l)));
+  fill('fn-steps', p.order.length ? p.order.map((k, i) => el('li', {class:ORDER[i] === k ? 'ok' : p.order.length === ORDER.length ? 'bad' : ''}, el('b', {}, i + 1), STEPS[k])) : el('li', {class:'ol-muted'}, 'Click the steps in the order you want to run them.'));
+  const fb = $('fn-order-fb');
+  if (p.order.length === ORDER.length) {
+    const wrong = p.order.findIndex((k, i) => k !== ORDER[i]);
+    fb.dataset.kind = wrong < 0 ? 'good' : 'warn';
+    fb.textContent = wrong < 0 ? 'Sequence approved: every step only runs once the things it depends on are ready.' : `Step ${wrong + 1} would fail. ${WHY[ORDER[wrong]]} Reset and try again.`;
+  } else { fb.textContent = ''; fb.removeAttribute('data-kind'); }
+  fill('fn-checks', Object.entries(SYSTEMS).map(([k, sys]) => el('label', {class:'fn-check'}, el('span', {}, el('b', {}, sys.name), ' — what proves it is safe?'),
+    el('select', {onchange:e => { p.checks[k] = e.target.value; savePlan(); renderPlan(); }, disabled:model.busy},
+      el('option', {value:''}, '— choose a verification check —'), Object.entries(sys.options).map(([v, l]) => el('option', {value:v, selected:p.checks[k] === v}, l))),
+    p.checks[k] ? el('small', {class:p.checks[k] === sys.right ? 'ok' : 'bad'}, p.checks[k] === sys.right ? '✓ That is real evidence.' : '✗ That doesn’t prove it is safe. What did you test in that zone?') : null)));
+  const ready = planComplete();
+  text('fn-plan-status', ready ? 'Restoration plan approved. Proceed to final authorisation.' : 'Complete the sequence and choose a real verification check for every system.');
+  $('fn-plan-status').dataset.kind = ready ? 'good' : 'warn';
+  $('fn-stage4').classList.toggle('is-locked', !ready);
+  renderAuth();
 }
-function phase(question,index) {return STORY[question.id] || {...FALLBACK,code:`RECOVERY PHASE ${index+1}`};}
-function renderSteps() {
-  const steps=$('finale-steps');steps.replaceChildren();
-  model.questions.forEach((q,i)=>{
-    const meta=phase(q,i), answered=Boolean(model.answers[q.id]);
-    const b=node('button',`finale-step${i===model.step?' is-active':''}${answered?' is-decided':''}`);
-    b.type='button';b.setAttribute('aria-current', i===model.step?'step':'false');
-    b.append(node('span','finale-step-index',answered?'✓':String(i+1).padStart(2,'0')));
-    const wrap=node('span','finale-step-copy');wrap.append(node('small','',meta.code));wrap.append(node('strong','',meta.title));b.append(wrap);
-    b.addEventListener('click',()=>{if(model.busy)return;model.step=i;renderSteps();renderQuestion();});steps.append(b);
-  });
-  const answered=model.questions.filter(q=>Boolean(model.answers[q.id])).length;
-  text('finale-decisions-count',`${answered} / ${model.questions.length} decisions ready`);
-  const all=answered===model.questions.length && model.questions.length>0;
-  $('finale-submit').disabled=!all||model.busy;
-  text('finale-submit-hint',all?'All decisions ready. Confirm with your group before authorising.':`Choose ${model.questions.length-answered} more response${model.questions.length-answered===1?'':'s'} to continue.`);
-  ['ai','portal','response'].forEach(service=>text(`finale-service-${service}`,'STANDBY'));
-  model.questions.forEach((q,i)=>{const service=phase(q,i).service;if(service)text(`finale-service-${service}`,model.answers[q.id]?'DECIDED':'STANDBY');});
+function savePlan() { store.set('plan', model.plan); }
+function renderAuth() {
+  const ready = planComplete();
+  fill('fn-auth', model.questions.map((q, i) => {
+    const ph = PHASES[q.id] || {title:`Decision ${i + 1}`, icon:'◇'};
+    return el('fieldset', {class:`fn-gate ${model.answers[q.id] ? 'is-set' : ''}`, disabled:!ready || model.busy},
+      el('legend', {}, el('span', {class:'fn-gate-icon', 'aria-hidden':'true'}, ph.icon), el('span', {}, el('small', {}, `GATE ${i + 1} · ${ph.title.toUpperCase()}`), q.text)),
+      Object.entries(q.options).map(([v, l]) => el('label', {class:'ol-check-opt'},
+        el('input', {type:'radio', name:'fn-' + q.id, value:v, checked:model.answers[q.id] === v, onchange:() => { model.answers[q.id] = v; renderAuth(); }}), el('span', {}, l))));
+  }));
+  const all = model.questions.length > 0 && model.questions.every(q => model.answers[q.id]);
+  const agreed = $('fn-agree').checked;
+  $('fn-agree').disabled = !ready || !all || model.busy;
+  $('fn-submit').disabled = !ready || !all || !agreed || model.busy;
+  text('fn-submit-hint', !ready ? 'Approve the restoration plan first.' : !all ? 'Decide every authorisation gate.' : !agreed ? 'Confirm that both workstations agree.' : 'Ready. One submission is recorded for your whole group.');
 }
-function renderQuestion() {
-  const q=model.questions[model.step];if(!q)return;
-  const meta=phase(q,model.step);
-  text('finale-stage-code',meta.code);text('finale-stage-counter',`${model.step+1} OF ${model.questions.length}`);
-  text('finale-stage-icon',meta.icon);text('finale-stage-title',meta.title);
-  text('finale-stage-description',meta.subtitle);text('finale-stage-evidence',meta.intel);
-  text('finale-stage-question',q.text);
-  const options=$('finale-options');options.replaceChildren();
-  Object.entries(q.options||{}).forEach(([value,label],i)=>{
-    const line=node('label','finale-option');
-    const radio=node('input');radio.type='radio';radio.name=`finale-answer-${q.id}`;radio.value=value;
-    radio.checked=model.answers[q.id]===value;radio.disabled=model.busy;
-    const mark=node('span','finale-option-mark',String.fromCharCode(65+i));mark.setAttribute('aria-hidden','true');
-    line.append(radio,mark,node('span','finale-option-label',label));
-    radio.addEventListener('change',()=>{model.answers[q.id]=value;renderSteps();renderQuestion();});
-    options.append(line);
-  });
-  const prev=$('finale-prev'),next=$('finale-next');prev.disabled=model.step===0||model.busy;
-  next.disabled=model.step===model.questions.length-1||model.busy;
-  text('finale-next',model.step===model.questions.length-2?'Final decision →':'Next decision →');
+function show(stage) {
+  for (const id of ['fn-gate-locked', 'fn-mission', 'fn-outcome']) $(id).hidden = id !== stage;
 }
-function renderSuccess(result=null) {
-  hide('finale-gate',true);hide('finale-command',true);hide('finale-outcome',false);
-  setCore(true);
-  const score=safeNum(model.state?.finale?.bestScore);
-  text('finale-outcome-zones',`${safeNum(model.state?.totalScore)}/300`);
-  text('finale-outcome-score',`${score}/100`);
-  text('finale-outcome-title', 'Company systems restored.');
-  text('finale-outcome-copy',`Mission complete, ${model.state?.groupName||'team'}. Your decisions brought the AI detector, staff portal and office operations back online.`);
-  text('finale-outcome-note',result?.scored===false?'Mission complete. This submission was a practice attempt; the recorded best score remains unchanged.':'Your completion is saved in MariaDB. The leaderboard will show your group’s recorded finale result.');
-  notice('SYSTEM RESTORED · Final mission complete and confirmed by the server.','good');
-  if (result) window.scrollTo({top:$('finale-outcome').getBoundingClientRect().top+window.scrollY-35,behavior:'smooth'});
+async function playRestore(result) {
+  show('fn-outcome');
+  const s = model.state;
+  text('fn-out-group', s.groupName);
+  text('fn-out-score', `${s.finale.bestScore}/100`);
+  text('fn-out-zones', `${s.totalScore}/300`);
+  fill('fn-out-scores', KEYS.map(k => el('div', {}, el('small', {}, k.name.toUpperCase()), el('strong', {}, `${s.scores?.[k.zone] ?? 0}/100`))));
+  text('fn-out-note', result && result.scored === false ? 'This was a practice submission; your recorded best finale score is unchanged.' : 'Result recorded by the server. It now appears on the live leaderboard.');
+  const systems = [...document.querySelectorAll('.fn-sys')];
+  systems.forEach(n => n.classList.remove('is-on'));
+  document.body.classList.remove('fn-restored');
+  for (const n of systems) { await wait(450); n.classList.add('is-on'); n.querySelector('b').textContent = 'ONLINE'; }
+  await wait(300);
+  document.body.classList.add('fn-restored');
+  $('fn-outcome').scrollIntoView({behavior:'smooth', block:'start'});
 }
-async function refresh({silent=false}={}) {
-  if (model.fetching||model.busy)return;
-  model.fetching=true;
+
+/* ---------- Server interaction ---------- */
+async function refresh({quiet = false} = {}) {
+  if (model.polling || model.busy) return;
+  model.polling = true;
   try {
-    const state=await getTeamState();model.state=state;
-    updateStatus();
-    if(completed()){renderSuccess();return;}
-    const hadAccess=model.ready;
-    if(state.finaleReady){
-      if(!model.questions.length){
-        const packet=await getFinaleQuestions();
-        model.ready=Boolean(packet.ready)&&Array.isArray(packet.questions)&&packet.questions.length>0;
-        model.questions=packet.questions||[];
-      } else model.ready=true;
-    } else model.ready=false;
-    if(!silent||hadAccess!==model.ready) renderAccess();
-  } catch (error) {
-    if(!silent){
-      hide('finale-command',true);hide('finale-outcome',true);hide('finale-gate',false);
-      if(error.status===401){text('finale-gate-title','Team login required.');text('finale-gate-description','Return to the Mission Hub and sign in using your group PIN. Then open the Final Mission again.');}
-      else{text('finale-gate-title','Mission control is unavailable.');text('finale-gate-description','Check the PHP server and Laragon MySQL, then try again.');}
-      notice(error.message,'error');
+    model.state = await getTeamState();
+    renderKeys();
+    if (model.state.finale?.completed) { if ($('fn-outcome').hidden) await playRestore(null); return; }
+    if (!model.state.finaleReady) {
+      show('fn-gate-locked');
+      const missing = KEYS.filter(k => !model.state.keys?.includes(k.code));
+      text('fn-locked-text', `${missing.length} key${missing.length === 1 ? '' : 's'} missing: ${missing.map(k => `${k.name} (${k.label})`).join(', ')}. Zones can be completed in any order. This console checks again automatically.`);
+      if (!quiet) notice(`Restoration protocol sealed — ${keyCount()} of 3 keys verified by the server.`, 'warn');
+      return;
     }
-  } finally { model.fetching=false; }
+    if (!model.questions.length) {
+      const packet = await getFinaleQuestions();
+      if (!packet.ready) return;
+      model.questions = packet.questions || [];
+      show('fn-mission'); renderBriefing(); renderPlan();
+      notice('All three recovery keys verified. Restoration console unlocked.', 'good');
+    }
+  } catch (error) {
+    if (!quiet) {
+      show('fn-gate-locked');
+      text('fn-locked-text', error.status === 401 ? 'This computer is not signed in. Sign in at the Mission Hub, then return here.' : describeError(error));
+      notice(describeError(error), 'bad');
+    }
+  } finally { model.polling = false; }
 }
 async function submit() {
-  if(model.busy||!model.ready||completed())return;
-  const unanswered=model.questions.filter(q=>!model.answers[q.id]);
-  if(unanswered.length){toast('Please select a response for all three restoration phases.','error');return;}
-  if(!window.confirm('Submit one final recovery assessment for your group? Make sure both workstations agree.'))return;
-  model.busy=true;$('finale-submit').disabled=true;text('finale-submit','AUTHORISING…');
-  try{
-    const result=await submitFinale({...model.answers});
-    model.outcome=result;
-    model.state=await getTeamState();updateStatus();
-    if(result.completed||completed()){
-      renderSuccess(result);
-      toast('All restoration checks passed. The company is back online.','success');
-    } else {
-      notice(`Restoration not authorised: ${result.correct} of ${result.total} recovery decisions passed. Review your choices and try again.`,'warn');
-      toast(`Server verified ${result.correct}/${result.total} correct decisions. Review the response plan.`,'error');
-      const remaining= Math.max(0,3-safeNum(model.state?.finale?.attempts));
-      text('finale-submit-hint',remaining?`System still offline. ${remaining} scored submission${remaining===1?'':'s'} remain.`:'System still offline. Further attempts are practice only.');
-      window.scrollTo({top:$('finale-command').getBoundingClientRect().top+window.scrollY-20,behavior:'smooth'});
+  if (model.busy) return;
+  model.busy = true; renderPlan();
+  $('fn-submit').textContent = 'AUTHORISING…';
+  try {
+    let result;
+    try { result = await submitFinale({...model.answers}); }
+    catch (e) { if (e.status !== 419) throw e; await getSession(); result = await submitFinale({...model.answers}); }
+    model.lastResult = result;
+    model.state = await getTeamState(); renderKeys();
+    if (result.completed || model.state.finale?.completed) {
+      toast('All restoration gates passed. Northstar Systems is back online.', 'success', 'SYSTEM RESTORED');
+      notice('SYSTEM RESTORED — confirmed by the server.', 'good');
+      model.busy = false;
+      await playRestore(result);
+      return;
     }
-  }catch(error){notice(`Recovery submission failed: ${error.message}`,'error');toast(error.message,'error');}
-  finally{
-    model.busy=false;const btn=$('finale-submit');btn.replaceChildren(node('span','', '⏻'),document.createTextNode(' AUTHORISE RESTORATION'));
-    if(!completed()){renderSteps();renderQuestion();}
+    const remaining = Math.max(0, 3 - (model.state.finale?.attempts || 0));
+    fill('fn-fail', el('strong', {}, `Restoration halted: ${result.correct} of ${result.total} authorisation gates accepted.`),
+      el('p', {}, 'At least one decision would put the company at risk again. Look at each gate and ask: does this verify before acting, test both sides, and leave a record? Discuss it as a team, then try again.'),
+      el('p', {class:'ol-muted'}, remaining ? `${remaining} scored submission${remaining === 1 ? '' : 's'} left; after that, attempts still count for completion.` : 'Further submissions still count for completion but not for extra score.'));
+    $('fn-fail').hidden = false;
+    $('fn-agree').checked = false;
+    notice('Restoration not authorised. Review the gates and resubmit.', 'warn');
+  } catch (error) {
+    notice('Submission failed: ' + describeError(error), 'bad');
+    toast(describeError(error), 'error', 'Not submitted');
+  } finally {
+    model.busy = false;
+    $('fn-submit').textContent = '⏻ AUTHORISE RESTORATION';
+    if (!$('fn-mission').hidden) renderPlan();
   }
 }
-function setup(){
-  $('finale-refresh').addEventListener('click',()=>refresh());
-  $('finale-prev').addEventListener('click',()=>{if(model.step>0&&!model.busy){model.step--;renderSteps();renderQuestion();}});
-  $('finale-next').addEventListener('click',()=>{if(model.step<model.questions.length-1&&!model.busy){model.step++;renderSteps();renderQuestion();}});
-  $('finale-submit').addEventListener('click',submit);
-  window.setInterval(()=>{if(!document.hidden)refresh({silent:true});},9000);
+function wire() {
+  $('fn-reset-order').addEventListener('click', () => { model.plan.order = []; savePlan(); renderPlan(); });
+  $('fn-agree').addEventListener('change', renderAuth);
+  $('fn-submit').addEventListener('click', submit);
+  $('fn-refresh').addEventListener('click', () => refresh());
+  $('fn-replay').addEventListener('click', () => playRestore(null));
+  setInterval(() => { if (!document.hidden) refresh({quiet:true}); }, 8000);
 }
-setup();
-(async()=>{try{await getSession();await refresh();}catch(error){notice(error.message,'error');}})();
+(async () => {
+  wire();
+  try {
+    await getSession();
+    const s = await getTeamState().catch(() => null);
+    if (s) { store.bind({group:s.group, workingUnit:s.workingUnit, workstation:s.workstation}); model.plan = store.get('plan', model.plan); }
+  } catch (error) { notice(describeError(error), 'bad'); }
+  await refresh();
+})();

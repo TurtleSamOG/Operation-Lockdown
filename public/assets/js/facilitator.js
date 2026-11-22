@@ -10,16 +10,25 @@ async function refresh(){
     $('roundLabel').textContent=`Rotation ${settings.activeRound} of 3`;
     // Don't replace the duration while the facilitator is typing.
     if(document.activeElement!==$('minutes'))$('minutes').value=settings.roundMinutes;
-    $('groupInfo').replaceChildren();
+    // Overview table built with textContent only (no HTML injection from server data).
+    const table=document.createElement('table');table.className='fc-table';
+    const head=table.createTHead().insertRow();
+    for(const h of ['Rank','Group','Train It','Fix It','Defend It','Total','Finale'])head.appendChild(Object.assign(document.createElement('th'),{textContent:h}));
+    const body=table.createTBody();
     for(const row of d.teams){
-      const card=document.createElement('div');card.className='board-row';
-      const top=document.createElement('div');top.className='row';
-      const name=document.createElement('strong');name.textContent=row.name;
-      const result=document.createElement('span');result.className='pill '+(row.keyCount===3?'good':'');result.textContent=`${row.keyCount}/3 keys`;
-      top.append(name,result);
-      const detail=document.createElement('p');detail.className='note';detail.textContent=`${row.totalScore}/300 points · Train ${row.scores.train} · Fix ${row.scores.fix} · Defend ${row.scores.defend}`;
-      card.append(top,detail);$('groupInfo').appendChild(card);
+      const tr=body.insertRow();
+      tr.insertCell().textContent=String(row.rank);
+      const name=tr.insertCell();name.appendChild(Object.assign(document.createElement('strong'),{textContent:row.name}));
+      for(const zone of ['train','fix','defend']){
+        const z=row.zones?.[zone]||{completed:0,total:3,keyEarned:false};
+        const chip=document.createElement('span');chip.className='fc-z '+(z.keyEarned?'on':z.completed?'mid':'');
+        chip.textContent=z.keyEarned?`✓ key · ${row.scores[zone]}`:`${z.completed}/${z.total} · ${row.scores[zone]} pts`;
+        tr.insertCell().appendChild(chip);
+      }
+      tr.insertCell().textContent=`${row.totalScore}/300`;
+      tr.insertCell().textContent=row.finale?.completed?`Restored (${row.finale.bestScore})`:row.finaleReady?'Unlocked':`${row.keyCount}/3 keys`;
     }
+    $('groupInfo').replaceChildren(table);
     $('refreshLabel').textContent=`Updated ${UI?.stamp?.()||'now'}`;
   }catch(e){
     if(e.status===403){$('controls').classList.add('hidden');$('authCard').classList.remove('hidden');}
@@ -51,3 +60,21 @@ $('awardKey').onclick=()=>{if(confirm('Award this recovery key manually?'))actio
 $('resetGroup').onclick=()=>{const team=$('targetGroup').value;const check=prompt(`To permanently erase ALL results for ${team}, type RESET`);if(check==='RESET')action('reset_group',{team,confirm:'RESET'},$('resetGroup'),`Group ${team} results cleared.`);};
 getSession().then(refresh).catch(error=>UI?.line('authMessage',`Server check failed: ${error.message}`,'error'));
 setInterval(()=>{if(!$('controls').classList.contains('hidden'))refresh();},7000);setInterval(tick,1000);
+
+// ---- Projector controls (presentation only; the briefing starts the timer via the same start_timer action) ----
+import('./qr.js').then(({qrSvg})=>{
+  const KEY='ol2:surveyUrl';
+  const read=()=>{try{return localStorage.getItem(KEY)||'';}catch{return '';}};
+  const preview=()=>{const url=read();$('surveyUrl').value=$('surveyUrl').value||url;const svg=url?qrSvg(url):null;
+    $('surveyQr').innerHTML=svg||(url?'Link too long for a QR code':'No link saved');
+    $('surveyNote').textContent=url?`Saved: ${url}`:'Saved on this browser only. Paste your survey link (Google Forms, Microsoft Forms…).';};
+  $('saveSurvey').onclick=()=>{
+    const url=$('surveyUrl').value.trim();
+    if(url&&!/^https?:\/\/\S+$/i.test(url)){UI?.notify('Enter a full link starting with https://','error','Survey link not saved');return;}
+    try{url?localStorage.setItem(KEY,url):localStorage.removeItem(KEY);}catch{UI?.notify('This browser blocked local storage.','error','Not saved');return;}
+    preview();UI?.notify(url?'The projector QR slide will show this link.':'Survey link cleared.','success','Survey link saved');
+  };
+  $('openProjector').onclick=()=>window.open('/leaderboard/','olProjector');
+  $('playBriefing').onclick=()=>window.open('/leaderboard/?briefing=1','olProjector');
+  preview();
+});

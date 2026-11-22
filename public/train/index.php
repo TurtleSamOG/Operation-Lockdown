@@ -6,98 +6,356 @@ declare(strict_types=1);
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <meta name="theme-color" content="#08131f">
-<meta name="description" content="Operation Lockdown 2.0 Train It — interactive AI security laboratory">
+<meta name="description" content="Operation Lockdown 2.0 Train It — interactive security analytics and detector engineering lab">
 <title>Train It | AI Security Lab — Operation Lockdown 2.0</title>
 <link rel="icon" href="/assets/img/favicon.svg" type="image/svg+xml">
 <link rel="stylesheet" href="/assets/css/app.css">
 <link rel="stylesheet" href="/assets/css/system.css">
 <link rel="stylesheet" href="/assets/css/polish.css">
 <link rel="stylesheet" href="/assets/css/train.css">
+<style>
+/* ===== Operation Lockdown 2.0 shared mission components (embedded per page; scoped to .ol-*) ===== */
+[hidden]{display:none!important}
+a.ol-btn{text-decoration:none}
+.ol-btn{display:inline-flex;align-items:center;justify-content:center;gap:.45rem;border:1px solid #2f5a6a;background:#12293a;color:#dff9ff;font-weight:750;font-size:.86rem;padding:.62rem 1rem;border-radius:10px;transition:background .15s,border-color .15s,transform .1s}
+.ol-btn:hover:not(:disabled){background:#173a4f;border-color:#4fb8c0}.ol-btn:active:not(:disabled){transform:translateY(1px)}.ol-btn:disabled{opacity:.45;cursor:not-allowed}
+.ol-btn-primary{background:linear-gradient(135deg,#2be0cb,#1793a6);border-color:#43e8d4;color:#04222b}.ol-btn-primary:hover:not(:disabled){background:linear-gradient(135deg,#4ff0dc,#1fa9bb)}
+.ol-btn-quiet{background:transparent;border-color:#2b4459;color:#a9c7d6}.ol-btn-danger{border-color:#7b3b48;background:#2a1520;color:#ffc3cb}
+.ol-btn.is-on,.ol-btn[aria-pressed="true"]{border-color:#5ff0dc;background:#14404a;color:#c8fff6;box-shadow:inset 0 0 0 1px #5ff0dc55}
+.ol-kicker{font-family:ui-monospace,Consolas,monospace;font-size:.66rem;letter-spacing:.16em;font-weight:800;color:#6fd9cf;text-transform:uppercase}
+.ol-muted{color:#93abbe;font-size:.88rem}
+.ol-banner{border:1px solid #2c4c5c;background:#0f2230;border-radius:12px;padding:.8rem 1rem;font-size:.9rem;margin:0 0 16px;color:#cfe7f1}
+.ol-banner[data-kind="good"]{border-color:#2f7a63;background:#0f2a24;color:#b6f7dc}.ol-banner[data-kind="bad"]{border-color:#81404c;background:#2a141b;color:#ffc6cf}.ol-banner[data-kind="warn"]{border-color:#7a6332;background:#2a2312;color:#ffe3a8}
+.ol-status-strip{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px;margin:0 0 18px}
+.ol-status-strip>div{border:1px solid #213a4d;background:#0d1b2a;border-radius:12px;padding:.7rem .9rem;min-width:0}
+.ol-status-strip small{display:block;font-family:ui-monospace,Consolas,monospace;font-size:.62rem;letter-spacing:.14em;color:#7c9bb0}
+.ol-status-strip strong{display:block;font-size:1.05rem;margin-top:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.ol-status-strip span{font-size:.75rem;color:#8ea7b9}
+.ol-official{color:#8ff5d8}.ol-sim-tag{display:inline-block;font-family:ui-monospace,Consolas,monospace;font-size:.6rem;letter-spacing:.12em;border:1px dashed #5d7d92;color:#a9c3d3;border-radius:6px;padding:2px 6px;vertical-align:middle}
+/* Station tabs */
+.ol-tabs{display:flex;flex-wrap:wrap;gap:8px;margin:0 0 16px}
+.ol-tab{display:flex;align-items:center;gap:.6rem;border:1px solid #24405a;background:#0d1c2b;color:#bcd3e2;border-radius:12px;padding:.65rem .95rem;font-weight:700;font-size:.88rem}
+.ol-tab small{display:block;font-weight:600;color:#7f9cb1;font-size:.7rem}.ol-tab b{margin-left:.3rem;font-size:.72rem;border-radius:99px;padding:2px 8px;background:#1a2f42;color:#8aa6ba}
+.ol-tab[aria-selected="true"]{border-color:var(--zone,#5ff0dc);background:#11283a;color:#fff;box-shadow:inset 0 -3px var(--zone,#5ff0dc)}
+.ol-tab b.done{background:#164a3a;color:#9ff7d4}
+.ol-tab .ol-you{font-size:.6rem;letter-spacing:.12em;color:#04222b;background:var(--zone,#5ff0dc);border-radius:5px;padding:1px 5px;margin-left:.2rem}
+/* Panels */
+.ol-panel{border:1px solid #213b50;background:linear-gradient(160deg,#0f2133,#0b1826);border-radius:16px;padding:clamp(14px,1.8vw,22px);min-width:0}
+.ol-panel h3{margin:.25rem 0 .4rem;font-size:1.08rem;letter-spacing:-.01em}
+.ol-step{display:flex;align-items:baseline;gap:.7rem;margin:22px 0 10px;padding-bottom:7px;border-bottom:1px solid #1d3446}
+.ol-step span{font-family:ui-monospace,Consolas,monospace;font-size:.66rem;letter-spacing:.14em;color:var(--zone,#6fd9cf);font-weight:800}
+.ol-step strong{font-size:1rem}.ol-step small{margin-left:auto;color:#7f9cb1;font-size:.74rem;text-align:right}
+/* Hints */
+.ol-hints{border:1px solid #2a4357;border-radius:12px;background:#0d1b28;padding:.55rem .85rem;margin:12px 0}
+.ol-hints summary{cursor:pointer;font-weight:750;color:#bde4ee;font-size:.88rem}
+.ol-hint-list{margin:.6rem 0 .5rem;padding-left:1.2rem;color:#c6d9e4;font-size:.86rem;line-height:1.55}.ol-hint-list li{margin:.3rem 0}
+/* Handoff codes */
+.ol-handoff{border:1px dashed #3f7c86;background:#0b2229;border-radius:14px;padding:14px 16px;margin:12px 0}
+.ol-handoff h4{margin:0 0 .3rem;font-size:.95rem}.ol-handoff p{margin:.3rem 0;color:#bcd5df;font-size:.86rem;line-height:1.5}
+.ol-code-display{display:flex;flex-direction:column;gap:2px;margin:.6rem 0}
+.ol-code-caption{font-size:.7rem;font-family:ui-monospace,Consolas,monospace;letter-spacing:.12em;color:#7fc7c4}
+.ol-code-value{font-family:ui-monospace,Consolas,monospace;font-size:clamp(1.6rem,3vw,2.3rem);letter-spacing:.18em;color:#8ffbe6;text-shadow:0 0 18px #2de0cb44}
+.ol-code-entry{margin:.5rem 0}.ol-code-label{display:block;font-size:.8rem;font-weight:700;color:#bcd5df;margin-bottom:5px}
+.ol-code-row{display:flex;gap:8px;flex-wrap:wrap}
+.ol-code-input{font-family:ui-monospace,Consolas,monospace;font-size:1.1rem;letter-spacing:.15em;text-transform:uppercase;width:11ch;background:#061520;border:1px solid #2f5a6a;color:#e8fbff;border-radius:9px;padding:.5rem .7rem}
+.ol-code-status{font-size:.8rem;margin:.35rem 0 0;min-height:1.1em}.ol-code-status[data-kind="bad"]{color:#ffb3bd}.ol-code-status[data-kind="good"]{color:#9df5d6}
+/* Checkpoint */
+.ol-checkpoint{border:1px solid #2a4c5c;background:linear-gradient(160deg,#0f2433,#0a1824);border-radius:16px;padding:16px 18px;margin-top:12px}
+.ol-checkpoint.is-passed{border-color:#2f7a63;box-shadow:inset 3px 0 #4fe0a8}
+.ol-check-head{display:flex;flex-direction:column;gap:3px;margin-bottom:8px}.ol-check-head strong{font-size:1.02rem}.ol-check-head small{color:#89a5b8;font-size:.76rem}
+.ol-check-intro{color:#bcd2de;font-size:.88rem;margin:.2rem 0 .6rem;line-height:1.5}
+.ol-check-lock{border-left:3px solid #f2c56b;background:#231e10;color:#ffe2a3;padding:.55rem .8rem;border-radius:6px;font-size:.85rem;margin:.4rem 0 .7rem}
+.ol-check-form.is-locked .ol-check-q{opacity:.55}
+.ol-check-q{border:1px solid #1f3a4c;border-radius:12px;padding:.7rem .85rem;margin:0 0 9px}
+.ol-check-q legend{font-weight:700;font-size:.92rem;padding:0 .3rem;line-height:1.4}.ol-check-n{font-family:ui-monospace,Consolas,monospace;color:#6fd9cf;margin-right:.5rem;font-size:.78rem}
+.ol-check-opt{display:flex;gap:.6rem;align-items:flex-start;padding:.45rem .55rem;border-radius:8px;cursor:pointer;font-size:.88rem;color:#d2e4ee}
+.ol-check-opt:hover{background:#13293a}.ol-check-opt input{margin-top:.2rem;accent-color:#3fe0cc}
+.ol-check-opt:has(input:checked){background:#123342;box-shadow:inset 0 0 0 1px #3fbfb5}
+.ol-check-foot{display:flex;flex-wrap:wrap;gap:12px;align-items:center;margin-top:8px}.ol-check-status{font-size:.78rem;color:#88a4b7;margin:0}
+.ol-check-feedback{margin-top:10px;font-size:.88rem;line-height:1.5;border-radius:10px;padding:0}
+.ol-check-feedback[data-kind]{padding:.65rem .85rem}.ol-check-feedback[data-kind="good"]{background:#0f2a22;color:#aef5d6;border:1px solid #2c6e57}
+.ol-check-feedback[data-kind="warn"]{background:#2a2313;color:#ffe2a8;border:1px solid #6e5a2c}.ol-check-feedback[data-kind="bad"]{background:#2a141b;color:#ffc3cc;border:1px solid #6e2f3c}.ol-check-feedback[data-kind="info"]{background:#0f2230;color:#c8e3ef;border:1px solid #2c4c5c}
+/* Key reward */
+.ol-key{display:flex;align-items:center;gap:14px;border:1px solid #2b5a5d;border-radius:14px;padding:14px 16px;background:#0b1f26;margin-top:14px}
+.ol-key-glyph{width:52px;height:52px;border-radius:50%;display:grid;place-items:center;font-size:1.4rem;border:2px dashed #4b7680;color:#6a8f99;flex:none}
+.ol-key strong{display:block;letter-spacing:.06em}.ol-key small{color:#8aa6b6}
+.ol-key.is-earned{border-color:#43d6a6;background:linear-gradient(135deg,#0f2c26,#0b1f26);box-shadow:0 0 0 1px #43d6a633,0 0 40px #2de0b222}
+.ol-key.is-earned .ol-key-glyph{border-style:solid;border-color:#5ff0c4;color:#04241c;background:#5ff0c4;animation:ol-pop .6s ease-out}
+@keyframes ol-pop{0%{transform:scale(.6)}70%{transform:scale(1.12)}100%{transform:scale(1)}}
+.ol-login-needed{border:1px solid #6e5a2c;background:#221d10;border-radius:14px;padding:18px;display:flex;flex-direction:column;gap:8px;align-items:flex-start}
+.ol-login-needed p{margin:0;color:#f1dfb4}
+/* Generic chips and meters */
+.ol-chip{display:inline-flex;align-items:center;gap:4px;font-size:.72rem;font-weight:700;border-radius:99px;padding:3px 9px;background:#162b3c;color:#b5cfde;border:1px solid #24435a}
+.ol-chip.bad{background:#2c1720;color:#ffb8c2;border-color:#6a3040}.ol-chip.warn{background:#2b2414;color:#ffdf9e;border-color:#6a5728}.ol-chip.good{background:#11302a;color:#a3f4d3;border-color:#2b6b58}
+.ol-meter{height:8px;border-radius:99px;background:#16283a;overflow:hidden}.ol-meter>i{display:block;height:100%;border-radius:inherit;background:linear-gradient(90deg,#2bd8c4,#6ff0b7);transition:width .5s ease}
+.ol-meter.warn>i{background:linear-gradient(90deg,#e7b44f,#f3d27a)}.ol-meter.bad>i{background:linear-gradient(90deg,#e05a6c,#f38b98)}
+.ol-feed{display:flex;flex-direction:column;gap:6px;max-height:220px;overflow:auto;font-size:.8rem}
+.ol-feed>div{border-left:2px solid #2d5a6a;padding:.3rem .6rem;color:#bcd3e0;background:#0c1b28;border-radius:0 6px 6px 0}
+.ol-feed>div time{font-family:ui-monospace,Consolas,monospace;color:#6f93a8;margin-right:.5rem;font-size:.72rem}
+.ol-feed>div.bad{border-color:#d0606f}.ol-feed>div.good{border-color:#3fd3a1}.ol-feed>div.warn{border-color:#e2b552}
+.ol-two{display:grid;grid-template-columns:minmax(0,1.35fr) minmax(0,1fr);gap:16px;align-items:start}
+.ol-grid2{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px}
+@media (max-width:980px){.ol-two,.ol-grid2{grid-template-columns:1fr}.ol-status-strip{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media (prefers-reduced-motion:reduce){*,*::before,*::after{animation-duration:.01ms!important;animation-iteration-count:1!important;transition-duration:.01ms!important;scroll-behavior:auto!important}}
+/* ===== Spacing & breathing room (v2) ===== */
+.system{padding-top:34px}
+.topline{margin-bottom:44px!important}
+.ol-banner{margin:0 0 28px;padding:1rem 1.25rem;line-height:1.55}
+.ol-status-strip{gap:16px;margin:0 0 36px}
+.ol-status-strip>div{padding:1rem 1.2rem;border-radius:14px}
+.ol-status-strip strong{margin-top:6px}
+.ol-tabs{gap:12px;margin:0 0 12px}
+.ol-tab{padding:.8rem 1.1rem}
+.ol-step{margin:56px 0 20px;padding-bottom:12px}
+.ol-step small{color:#6f8ba0}
+[data-panel]>.ol-step:first-child{margin-top:36px}
+.ol-panel{padding:clamp(22px,2.4vw,32px);border-radius:18px}
+.ol-panel h3{margin:.4rem 0 .9rem}
+.ol-panel p{line-height:1.65}
+.ol-two{gap:28px}.ol-grid2{gap:22px}
+[data-panel] [style*="margin-top:14px"],[data-panel] [style*="margin-top:12px"]{margin-top:28px!important}
+.ol-checkpoint{margin-top:48px;padding:26px 28px;border-radius:18px}
+.ol-check-head{margin-bottom:14px}
+.ol-check-q{padding:1rem 1.15rem;margin:0 0 14px}
+.ol-check-opt{padding:.55rem .65rem}
+.ol-handoff{padding:22px 24px;margin:22px 0}
+.ol-key{margin-top:32px;padding:20px 22px}
+.ol-hints{margin:22px 0 0;padding:.75rem 1rem}
+.ol-feed{gap:8px}
+.tl-table td{padding:.65rem .7rem}
+.tl-hero,.fx-hero,.dt-hero,.fn-hero,.hb-hero{margin-bottom:40px!important;gap:44px!important}
+.tl-soc-grid,.tl-eng,.fx-testbed,.dt-mapgrid,.dt-office{gap:24px!important}
+.tl-rule{margin:0 0 12px!important;padding:.85rem .95rem!important}
+.tl-progressbar{margin-top:20px!important}
+.tl-footnote{margin-top:56px!important}
+.site-footer{margin-top:40px}
+.ol-check-opt{margin:0 0 4px!important;font-weight:600}.ol-check-q legend{margin-bottom:8px}
+
+/* ===== Train It · security analytics lab (scoped .tl-*) ===== */
+.tl-shell{--zone:#5ff0dc}
+.sr-only{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0)}
+.tl-hero{display:grid;grid-template-columns:minmax(0,1.5fr) minmax(300px,.9fr);gap:24px;align-items:stretch;margin-bottom:18px}
+.tl-title{font-size:clamp(2.2rem,4.6vw,4.2rem);line-height:1.02;letter-spacing:-.05em;margin:.3rem 0 .8rem;font-weight:850}.tl-title span{color:#74eadc}
+.tl-lead{color:#b4c8d7;line-height:1.7;max-width:680px;margin:0 0 .8rem}
+.tl-honest{font-size:.82rem;color:#9fb6c6;max-width:680px;line-height:1.55}
+.tl-feed{border:1px solid #23455a;border-radius:16px;background:#0a1824;padding:14px;display:flex;flex-direction:column;gap:8px}
+.tl-feed-head{font-family:ui-monospace,Consolas,monospace;font-size:.66rem;letter-spacing:.16em;color:#7fd8cf;font-weight:800}
+.tl-led{display:inline-block;width:8px;height:8px;border-radius:50%;background:#ff6d7d;margin-right:6px;box-shadow:0 0 0 4px #ff6d7d22;animation:tl-blink 1.6s infinite}
+@keyframes tl-blink{50%{opacity:.35}}
+.tl-msg{border-left:2px solid #2f6270;padding:.35rem .7rem;background:#0d1f2d;border-radius:0 8px 8px 0;font-size:.84rem;animation:tl-in .5s both}
+.tl-msg:nth-child(3){animation-delay:.25s}.tl-msg:nth-child(4){animation-delay:.5s}
+@keyframes tl-in{from{opacity:0;transform:translateY(6px)}}
+.tl-msg time{font-family:ui-monospace,Consolas,monospace;color:#6f93a8;font-size:.72rem;margin-right:6px}.tl-msg b{font-size:.78rem;color:#bfe9ef}.tl-msg p{margin:.2rem 0 0;color:#c8dbe5}
+.tl-msg-alert{border-color:#e0606f}.tl-msg-alert strong{color:#ff9fab}
+/* SOC dashboard */
+.tl-soc{padding-top:12px}
+.tl-soc-head{display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap;align-items:center}
+.tl-legend{font-size:.72rem;color:#93abbe;display:flex;gap:10px;align-items:center}.tl-legend i{display:inline-block;width:9px;height:9px;border-radius:50%;margin-right:3px}
+.lg-n{background:#5fe3b0}.lg-s{background:#ff8a99}.lg-r{background:#f4c86d}.lg-u{background:#7aa7c2}
+.tl-timeline{width:100%;height:auto;display:block;margin:6px 0 10px}
+.tl-dot{cursor:pointer}.tl-dot:focus{outline:none}.tl-dot:focus circle,.tl-dot:hover circle{stroke:#fff}
+.tl-soc-grid{display:grid;grid-template-columns:minmax(0,1.45fr) minmax(300px,1fr);gap:14px;align-items:start}
+.tl-table-wrap{overflow:auto;border:1px solid #1d3547;border-radius:12px}
+.tl-table{width:100%;border-collapse:collapse;font-size:.84rem}
+.tl-table th{text-align:left;font-family:ui-monospace,Consolas,monospace;font-size:.64rem;letter-spacing:.12em;color:#7f9cb1;font-weight:800;padding:.55rem .6rem;border-bottom:1px solid #1d3547;background:#0b1825;position:sticky;top:0}
+.tl-table td{padding:.5rem .6rem;border-bottom:1px solid #15293a;vertical-align:top}
+.tl-table td small{display:block;color:#7f9cb1;font-size:.72rem}
+.tl-small{font-size:.8rem}.tl-small td{padding:.38rem .55rem}
+.tl-events-table tbody tr{cursor:pointer;transition:background .12s}
+.tl-events-table tbody tr:hover,.tl-events-table tbody tr:focus{background:#122a3b;outline:none}
+.tl-events-table tbody tr.is-selected{background:#14334a;box-shadow:inset 3px 0 #5ff0dc}
+.tl-events-table tbody tr:not(.is-opened) td:first-child::after{content:" ●";color:#5ff0dc;font-size:.6rem}
+.tl-flags{display:flex;flex-wrap:wrap;gap:4px}
+.tl-mono{font-family:ui-monospace,Consolas,monospace;font-size:.8rem;white-space:nowrap}
+.tl-dim{color:#7f97a9}
+.tl-label{display:inline-block;font-size:.72rem;font-weight:800;border-radius:6px;padding:2px 7px;background:#18293a;color:#8aa6ba}
+.tl-label-normal{background:#11302a;color:#8ff2c9}.tl-label-suspicious{background:#3a1822;color:#ffadb8}.tl-label-review{background:#33290f;color:#ffdc8e}
+.tl-inspector{border:1px solid #23455a;border-radius:14px;background:#0a1a27;padding:14px;position:sticky;top:12px}
+.tl-insp-head h3{margin:.2rem 0 0;font-family:ui-monospace,Consolas,monospace}.tl-insp-head small{color:#8aa6b6}
+.tl-compare{width:100%;border-collapse:collapse;font-size:.8rem;margin:10px 0}
+.tl-compare th,.tl-compare td{padding:.35rem .4rem;border-bottom:1px solid #16293a;text-align:left;vertical-align:top}
+.tl-compare thead th{font-size:.64rem;letter-spacing:.1em;color:#7f9cb1;font-family:ui-monospace,Consolas,monospace}
+.tl-compare tbody th{color:#9fb8c8;font-weight:700;white-space:nowrap}
+.tl-notes p{margin:.3rem 0;font-size:.84rem;color:#d6e6ee;line-height:1.45}
+.tl-classify{display:flex;flex-wrap:wrap;gap:8px;margin:12px 0 6px}
+.tl-cls-normal[aria-pressed="true"]{border-color:#5fe3b0;background:#10372b;color:#b6ffe0}
+.tl-cls-suspicious[aria-pressed="true"]{border-color:#ff8a99;background:#3d1823;color:#ffd0d6}
+.tl-cls-review[aria-pressed="true"]{border-color:#f4c86d;background:#3a2d10;color:#ffe7b0}
+.tl-debrief{border-radius:10px;padding:.6rem .8rem;margin-top:10px;font-size:.84rem}.tl-debrief p{margin:.25rem 0 0;line-height:1.5}
+.tl-debrief.good{background:#0f2a22;border:1px solid #2c6e57}.tl-debrief.warn{background:#2a2313;border:1px solid #6e5a2c}
+.tl-progressbar{display:flex;flex-wrap:wrap;gap:16px;align-items:center;margin-top:12px;font-size:.84rem;color:#a8c0cf}
+.tl-progressbar button{margin-left:auto}
+.tl-review{border-radius:10px;padding:.7rem .9rem;margin:0 0 10px;font-size:.88rem}.tl-review p{margin:.3rem 0 0}
+.tl-review.good{background:#0f2a22;border:1px solid #2c6e57;color:#b5f5da}.tl-review.warn{background:#2a2313;border:1px solid #6e5a2c;color:#ffe3ac}.tl-review.bad{background:#2a141b;border:1px solid #6e2f3c;color:#ffc6cf}
+.tl-issue{display:flex;gap:10px;width:100%;text-align:left;border:1px solid #2a4357;background:#0d1c29;color:#d4e3ec;border-radius:10px;padding:.55rem .7rem;margin:0 0 6px;font-size:.84rem;line-height:1.45}
+.tl-issue:hover{border-color:#5ff0dc}.tl-issue em{color:#9fd8de;font-style:normal}
+.tl-issue-serious{border-left:3px solid #ff7f8f}.tl-issue-moderate{border-left:3px solid #f2c56b}.tl-issue-minor{border-left:3px solid #7aa7c2}
+.tl-signals{display:flex;flex-direction:column;gap:6px}
+.tl-signal{display:flex;gap:.6rem;align-items:flex-start;padding:.45rem .6rem;border:1px solid #1d3547;border-radius:9px;font-size:.86rem;cursor:pointer}
+.tl-signal:has(input:checked){border-color:#3fbfb5;background:#11303a}.tl-signal input{margin-top:.2rem;accent-color:#3fe0cc}
+/* Engineering */
+.tl-eng{display:grid;grid-template-columns:minmax(330px,.9fr) minmax(0,1.3fr);gap:14px;align-items:start}
+.tl-console{background:linear-gradient(160deg,#0c1d2b,#081520);font-size:.88rem}
+.tl-console-head{display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:6px}
+.tl-rule{border:1px solid #1d3547;border-radius:11px;padding:.6rem .7rem;margin:0 0 8px;background:#0a1823;display:flex;flex-direction:column;gap:7px}
+.tl-rule-name b{font-size:.86rem}.tl-rule-name small{display:block;color:#7f9cb1;font-size:.74rem;margin-top:2px}
+.tl-rule-alert{border-color:#2f5a6a;background:#0c2230}
+.tl-weight{display:flex;gap:4px}
+.tl-wbtn{flex:1;border:1px solid #24435a;background:#0f2232;color:#a9c3d3;border-radius:7px;padding:.35rem 0;font-weight:800;font-size:.78rem}
+.tl-wbtn[aria-pressed="true"]{background:#1a4c55;border-color:#5ff0dc;color:#d9fff8}
+.tl-wbtn:first-child[aria-pressed="true"]{background:#2a2030;border-color:#7d6a8a;color:#d8c8e4}
+.tl-slider{display:flex;flex-direction:column;gap:4px;font-size:.8rem;color:#b9d0dd}.tl-slider input{accent-color:#3fe0cc;width:100%}
+.tl-slider output{font-family:ui-monospace,Consolas,monospace;color:#8ffbe6;font-weight:800}
+.tl-ctx{flex-direction:row;align-items:flex-start;gap:10px;cursor:pointer}.tl-ctx input{margin-top:.25rem;accent-color:#3fe0cc}.tl-ctx small{display:block;color:#7f9cb1}
+.tl-inline{font-size:.78rem;color:#a9c3d3;display:flex;gap:6px;align-items:center}
+.tl-runbar{display:flex;gap:12px;flex-wrap:wrap;align-items:center;margin:4px 0 12px}
+.tl-matrix{display:grid;grid-template-columns:110px 1fr 1fr;gap:6px;margin-bottom:10px}
+.tl-mx-h{font-family:ui-monospace,Consolas,monospace;font-size:.64rem;letter-spacing:.1em;color:#7f9cb1;display:flex;align-items:flex-end}
+.tl-mx-side{align-items:center}
+.tl-mx{border-radius:10px;padding:.55rem .7rem;border:1px solid}.tl-mx b{font-size:1.6rem;display:block;font-family:ui-monospace,Consolas,monospace}.tl-mx small{font-size:.72rem}
+.tl-mx.tp{background:#0f2c24;border-color:#2c6e57;color:#a6f3d2}.tl-mx.tn{background:#0f2230;border-color:#2c4c5c;color:#bfe0ee}
+.tl-mx.fp{background:#2c2312;border-color:#6e5a2c;color:#ffe0a2}.tl-mx.fn{background:#2c141c;border-color:#6e2f3c;color:#ffbdc6}
+.tl-mx b{animation:ol-pop .4s ease-out}
+.tl-reqs p{margin:.3rem 0;font-size:.86rem}.tl-reqs .ok{color:#9ff2cf}.tl-reqs .no{color:#ffb7c0}
+.tl-verdict{border-radius:9px;padding:.5rem .7rem;line-height:1.45}.tl-verdict.ok{background:#0f2a22}.tl-verdict.no{background:#2a1a1f;color:#ffd2d8}
+.tl-results-wrap{max-height:320px;margin-top:10px}
+.tl-results-wrap tr{animation:tl-in .25s both}
+.tl-out-TP .tl-outcome{color:#8ff2c9}.tl-out-TN .tl-outcome{color:#9fc4d6}.tl-out-FP .tl-outcome{color:#ffd78a}.tl-out-FN .tl-outcome{color:#ff98a6}
+.tl-out-FN{background:#2a141b55}.tl-out-FP{background:#2a231355}
+#tl-history tr.ok td{color:#a6f3d2}
+.tl-disagree{background:#2a231355}.tl-disagree td:last-child{color:#ffd78a;font-weight:800}
+.tl-combined-sum{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;margin:6px 0 12px}
+.tl-combined-sum>div{border:1px solid #23455a;border-radius:10px;padding:.6rem .8rem;background:#0b1a27}
+.tl-combined-sum small{display:block;font-family:ui-monospace,Consolas,monospace;font-size:.6rem;letter-spacing:.12em;color:#7f9cb1}.tl-combined-sum strong{display:block;margin:.2rem 0}.tl-combined-sum span{font-size:.76rem;color:#9fb8c8}
+.tl-bonus-card{border:1px solid #6e5a2c;border-radius:14px;padding:14px;background:linear-gradient(160deg,#211c10,#0d1720)}.tl-bonus-card p{font-size:.88rem;line-height:1.5;color:#d8e2e8}
+.tl-footnote{margin-top:26px;font-size:.8rem;color:#8ea7b9;display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+@media (max-width:1100px){.tl-hero,.tl-soc-grid,.tl-eng{grid-template-columns:1fr}.tl-inspector{position:static}.tl-combined-sum{grid-template-columns:1fr}}
+
+</style>
 </head>
 <body class="page-train">
 <header class="site-header">
   <a class="brand" href="/" aria-label="Operation Lockdown home"><span class="brand-mark"><img src="/assets/img/shield-mark.svg" width="42" height="42" alt=""></span><span class="brand-text"><strong>OPERATION <span>LOCKDOWN</span></strong><small>T-LEVEL EXPERIENCE <b class="brand-version">/ 2.0</b></small></span></a>
   <nav aria-label="Main navigation"><a href="/">Mission hub</a><a href="/leaderboard/">Live scores</a><a href="/facilitator/">Staff control</a><span class="connection-indicator" data-connection-status="checking" role="status">Checking API</span></nav>
 </header>
-<main class="system train-shell">
-  <div class="topline"><span><span class="topline-dot"></span> OPERATION LOCKDOWN / LAB 01</span><span>AI SECURITY LABORATORY · TRAIN IT</span></div>
-  <section class="train-hero">
+<main class="system train-shell tl-shell">
+  <div class="topline"><span><span class="topline-dot"></span> NORTHSTAR SYSTEMS / INCIDENT NS-2611 / ZONE 01</span><span>SECURITY ANALYTICS LAB · TRAIN IT</span></div>
+
+  <section class="tl-hero" aria-labelledby="tl-title">
     <div>
-      <div class="train-eyebrow"><span class="train-led"></span> INCIDENT 001 / ACTIVE SECURITY THREAT <span class="train-eyebrow-label">RULE-BASED DETECTOR</span></div>
-      <h1 class="hero train-title">Train the <span class="accent">defence.</span></h1>
-      <p class="subtitle">A suspicious login campaign is targeting the company's accounts. Your job is to investigate the activity, calibrate a detection system and prove it can recognise threats without disrupting innocent staff.</p>
-      <div class="train-hero-tags"><span>01 · INVESTIGATE</span><span>02 · CALIBRATE</span><span>03 · VERIFY</span></div>
+      <p class="ol-kicker">ZONE 01 · AI SECURITY LAB</p>
+      <h1 id="tl-title" class="tl-title">Rebuild the <span>login detector.</span></h1>
+      <p class="tl-lead">Someone is trying to break into Northstar staff accounts. Last night the automated detector was switched off because it raised too many false alarms. Investigate the live login events, rebuild the rules and prove the detector is good enough to switch back on.</p>
+      <p class="tl-honest"><span class="ol-sim-tag">HONEST LABEL</span> This is a transparent, rule-based risk-scoring system — the kind of logic that sits underneath many “AI” security tools. It is not a trained machine-learning model, and all data is fictional.</p>
     </div>
-    <div class="train-radar" aria-hidden="true"><div class="train-radar-ring r1"></div><div class="train-radar-ring r2"></div><div class="train-radar-ring r3"></div><div class="train-radar-sweep"></div><div class="train-radar-centre">✳</div><span class="radar-mark m1"></span><span class="radar-mark m2"></span><span class="radar-mark m3"></span><div class="train-radar-caption">DETECTION MATRIX / ONLINE</div></div>
-  </section>
-  <div id="train-alert" class="train-alert train-alert-loading" role="status" aria-live="polite">Connecting to mission control…</div>
-  <section class="train-metrics" aria-label="Team details">
-    <div><span class="train-metric-label">ACTIVE GROUP</span><strong id="train-team">Loading…</strong><small id="train-unit">Checking session</small></div>
-    <div><span class="train-metric-label">YOUR STATION</span><strong id="train-station">—</strong><small>A / B / Joint</small></div>
-    <div><span class="train-metric-label">ZONE SCORE</span><strong id="train-score">0 <em>/ 100</em></strong><small>Server validated</small></div>
-    <div><span class="train-metric-label">RECOVERY KEY</span><strong id="train-key">Locked</strong><small id="train-progress">0 of 3 required tasks</small></div>
-  </section>
-  <div class="train-layout">
-    <aside class="train-sidebar">
-      <div class="train-panel train-sidepanel">
-        <div class="train-panel-kicker">MISSION PROGRESSION</div>
-        <h2>Control room</h2>
-        <p class="train-subtle">Each computer has a separate job. Your progress is shared with the rest of your group.</p>
-        <div class="train-stage-nav" role="group" aria-label="Train It activities">
-          <button type="button" data-view="a" class="train-stage is-active"><span class="train-stage-number">01</span><span><strong>Investigate</strong><small>Workstation A · Login evidence</small></span><b id="nav-a">—</b></button>
-          <button type="button" data-view="b" class="train-stage"><span class="train-stage-number">02</span><span><strong>Calibrate</strong><small>Workstation B · Detection rules</small></span><b id="nav-b">—</b></button>
-          <button type="button" data-view="joint" class="train-stage"><span class="train-stage-number">03</span><span><strong>Joint test</strong><small>Both workstations · Final check</small></span><b id="nav-joint">—</b></button>
-          <button type="button" data-view="bonus" class="train-stage"><span class="train-stage-number">+</span><span><strong>Extra incident</strong><small>Optional · Fast teams</small></span><b id="nav-bonus">—</b></button>
-        </div>
-        <div class="train-side-foot"><span class="train-pulse"></span><span id="train-sync-label">Waiting for group state</span></div>
-      </div>
-      <div class="train-panel train-briefing">
-        <div class="train-panel-kicker">OPERATOR BRIEFING</div>
-        <h3>How it works</h3>
-        <ol><li><b>Station A:</b> Review evidence and classify logins.</li><li><b>Station B:</b> Tune detector settings and test them.</li><li><b>Both:</b> Share findings and complete the final assessment.</li></ol>
-        <p>The real score and recovery key are saved by the server. The practice simulator doesn't affect the leaderboard.</p>
-      </div>
+    <aside class="tl-feed" aria-label="Incident messages">
+      <div class="tl-feed-head"><span class="tl-led"></span> SECURITY OPERATIONS · LIVE</div>
+      <div class="tl-msg"><time>08:41</time><b>Priya Shah, Head of Security</b><p>Overnight we saw a spike in failed logins. The detector is off, so we're blind.</p></div>
+      <div class="tl-msg"><time>08:44</time><b>Priya Shah</b><p>Analysts: tell me what's really happening. Engineers: build rules that catch it without locking out half the office again.</p></div>
+      <div class="tl-msg tl-msg-alert"><time>08:46</time><b>SYSTEM</b><p>Detector status: <strong>DISABLED</strong> · 10 events awaiting triage</p></div>
     </aside>
-    <section class="train-content" aria-label="Challenge activity">
-      <section data-panel="a" class="train-panel train-workspace">
-        <div class="train-workspace-top"><div><div class="train-panel-kicker">WORKSTATION A / INVESTIGATION</div><h2>Security event inbox</h2><p class="train-subtle">Read the evidence before making a judgement. An alert is a reason to investigate, not proof of wrongdoing.</p></div><span class="train-role-tag">EVIDENCE ANALYST</span></div>
-        <div class="train-module-step"><span>STEP 01</span><strong>Triage eight incoming login events</strong><small>Practice investigation · Discuss the clues with your partner</small></div>
-        <div id="train-case-inbox" class="train-case-list"></div>
-        <div class="train-practice-summary"><div><span class="train-metric-label">EVENTS REVIEWED</span><strong id="train-case-count">0 / 8</strong></div><div><span class="train-metric-label">SIMULATED ASSESSMENT</span><strong id="train-case-accuracy">—</strong></div><button id="train-reset-cases" class="train-mini-button" type="button">Reset practice</button></div>
-        <div class="train-module-step"><span>STEP 02</span><strong>Submit your official investigation report</strong><small>Server-scored · Must be submitted from Workstation A</small></div>
-        <div id="train-task-a" class="train-graded"></div>
-      </section>
-      <section data-panel="b" class="train-panel train-workspace" hidden>
-        <div class="train-workspace-top"><div><div class="train-panel-kicker">WORKSTATION B / RULE DESIGN</div><h2>Detection rules engine</h2><p class="train-subtle">Change the rule thresholds, then test them against a new set of logins. A powerful detector must also avoid false alarms.</p></div><span class="train-role-tag">DETECTOR ENGINEER</span></div>
-        <div class="train-module-step"><span>STEP 01</span><strong>Calibrate the detector</strong><small>Interactive rule simulation · No real AI model or real account data</small></div>
-        <div class="train-controls">
-          <div><label for="rule-fail">Alert after repeated failed attempts <strong id="rule-fail-value">5+</strong></label><input id="rule-fail" type="range" min="2" max="12" step="1" value="5"><small>Lower thresholds catch more activity, but create more alerts.</small></div>
-          <div class="train-toggles"><label><input id="rule-geo" type="checkbox"> Flag unfamiliar country</label><label><input id="rule-device" type="checkbox"> Flag new device</label><label><input id="rule-time" type="checkbox"> Flag unusual login time</label></div>
-        </div>
-        <div class="train-sim-results"><div><span>THREATS DETECTED</span><strong id="sim-detected">—</strong></div><div><span>FALSE ALARMS</span><strong id="sim-false">—</strong></div><div><span>OVERALL ACCURACY</span><strong id="sim-accuracy">—</strong></div></div>
-        <div class="train-rule-status" id="train-rule-status" aria-live="polite"></div>
-        <div class="train-sample-bar"><strong>Test traffic</strong><span id="train-test-count">12 simulated events</span></div>
-        <div class="train-table-wrap"><table class="train-sample-table"><thead><tr><th>Event</th><th>Failed logins</th><th>Signals</th><th>Detector</th></tr></thead><tbody id="train-samples"></tbody></table></div>
-        <div class="train-module-step"><span>STEP 02</span><strong>Submit your official rules assessment</strong><small>Server-scored · Must be submitted from Workstation B</small></div>
-        <div id="train-task-b" class="train-graded"></div>
-      </section>
-      <section data-panel="joint" class="train-panel train-workspace" hidden>
-        <div class="train-workspace-top"><div><div class="train-panel-kicker">JOINT MISSION / EVIDENCE REVIEW</div><h2>Prove the detector works</h2><p class="train-subtle">Both sides of the group must combine their findings before approving the detector for the company.</p></div><span class="train-role-tag">JOINT OPERATION</span></div>
-        <div id="train-joint-gate" class="train-alert">Waiting for Workstations A and B.</div>
-        <div class="train-evidence-grid"><article><span>CASE FILE / 01</span><strong>Unfamiliar login</strong><p>12 failed passwords before access from a new location.</p></article><article><span>CASE FILE / 02</span><strong>Legitimate traveller</strong><p>Employee has travel approval and a known device.</p></article><article><span>CASE FILE / 03</span><strong>Overnight technician</strong><p>Late login matches a scheduled maintenance window.</p></article></div>
-        <div class="train-module-step"><span>FINAL VERIFICATION</span><strong>Joint assessment</strong><small>Use the evidence, then agree on the safest response</small></div>
-        <div id="train-task-joint" class="train-graded"></div>
-        <div class="train-key-box"><div><span>RECOVERY ITEM</span><strong>AI DEFENCE ACTIVATED</strong><small>Unlocked automatically when all three required tasks pass</small></div><div class="train-key-icon" id="train-key-icon">◇</div></div>
-      </section>
-      <section data-panel="bonus" class="train-panel train-workspace" hidden>
-        <div class="train-workspace-top"><div><div class="train-panel-kicker">OPTIONAL / ADAPTIVE CONTENT</div><h2>Unexpected incident</h2><p class="train-subtle">For fast teams: the detector is raising too many alerts. Explain the trade-off and show how you'd tune the system without ignoring genuine attacks.</p></div><span class="train-role-tag">EXTRA CHALLENGE</span></div>
-        <div class="train-module-step"><span>BONUS DRILL</span><strong>Keep the office running</strong><small>Optional, scored separately only if the server assigns a bonus task</small></div>
-        <div class="train-bonus-notes"><p><b>Question for the team:</b> Should a detector automatically block every account that signs in from an unfamiliar country?</p><p>Discuss the impact on travelling staff, then compare the live rule simulator and official bonus assessment below.</p></div>
-        <div id="train-task-bonus" class="train-graded"></div>
-      </section>
-    </section>
+  </section>
+
+  <div id="tl-banner" class="ol-banner" role="status" aria-live="polite">Connecting to Mission Control…</div>
+
+  <section class="ol-status-strip" aria-label="Group status">
+    <div><small>GROUP</small><strong id="tl-group">—</strong><span id="tl-unit">Checking session</span></div>
+    <div><small>YOUR ROLE</small><strong id="tl-station">—</strong><span id="tl-role">—</span></div>
+    <div><small>OFFICIAL ZONE SCORE</small><strong id="tl-score" class="ol-official">0 / 100</strong><span>Server-validated sign-offs only</span></div>
+    <div><small>RECOVERY KEY</small><strong id="tl-keytext">LOCKED</strong><span id="tl-progress">0 of 3 sign-offs passed</span></div>
+  </section>
+
+  <div id="tl-main">
+  <div class="ol-tabs" role="tablist" aria-label="Train It stations">
+    <button class="ol-tab" role="tab" data-tab="a" aria-selected="true"><span>01</span><span>Investigate<small>Workstation A · Analyst</small></span><span class="ol-you" data-for="A" hidden>YOU</span><b id="tl-tab-a">open</b></button>
+    <button class="ol-tab" role="tab" data-tab="b" aria-selected="false"><span>02</span><span>Engineer<small>Workstation B · Detector</small></span><span class="ol-you" data-for="B" hidden>YOU</span><b id="tl-tab-b">open</b></button>
+    <button class="ol-tab" role="tab" data-tab="joint" aria-selected="false"><span>03</span><span>Release review<small>Both workstations</small></span><b id="tl-tab-joint">open</b></button>
+    <button class="ol-tab" role="tab" data-tab="bonus" aria-selected="false"><span>+</span><span>New incidents<small>Optional · fast teams</small></span><b id="tl-tab-bonus">optional</b></button>
   </div>
-  <footer class="site-footer"><span>OPERATION LOCKDOWN 2.0</span><span>TRAIN IT · SECURITY DETECTOR LAB</span><span>RETURN TO <a href="/">MISSION HUB</a></span></footer>
+
+  <!-- ===================== WORKSTATION A ===================== -->
+  <section data-panel="a" role="tabpanel" aria-label="Workstation A: Security Data Analyst">
+    <div class="ol-step"><span>STEP 1–3</span><strong>Triage the live login events</strong><small>Open events · compare with normal behaviour · classify</small></div>
+    <div class="ol-panel tl-soc">
+      <div class="tl-soc-head"><span class="ol-kicker">LOGIN ACTIVITY · LAST 24 HOURS · 10 FLAGGED EVENTS</span><span class="tl-legend"><i class="lg-n"></i>Normal <i class="lg-s"></i>Suspicious <i class="lg-r"></i>Needs verification <i class="lg-u"></i>Unclassified</span></div>
+      <div id="tl-timeline"></div>
+      <div class="tl-soc-grid">
+        <div class="tl-table-wrap"><table class="tl-table tl-events-table"><caption class="sr-only">Login events</caption>
+          <thead><tr><th>ID</th><th>Time</th><th>Account</th><th>Location</th><th>Signals</th><th>Your call</th></tr></thead><tbody id="tl-events"></tbody></table></div>
+        <aside id="tl-inspector" class="tl-inspector" aria-live="polite"></aside>
+      </div>
+      <div class="tl-progressbar">
+        <span>Opened <b id="tl-a-opened">0/10</b></span><span>Classified <b id="tl-a-classified">0/10</b></span><span>Reviews <b id="tl-a-reviews">0</b></span>
+        <span id="tl-a-next" class="tl-dim"></span>
+        <button id="tl-a-review" type="button" class="ol-btn ol-btn-primary" disabled>Request review from security lead</button>
+      </div>
+      <p id="tl-a-review-hint" class="ol-muted"></p>
+    </div>
+    <div class="ol-two" style="margin-top:14px">
+      <div class="ol-panel"><span class="ol-kicker">STEP 4–5 · REVIEW &amp; RECONSIDER</span><h3>Security lead's review</h3><div id="tl-a-feedback"><p class="ol-muted">Classify all ten events, then request a review. You'll be told which calls are risky — not the answers.</p></div><div id="tl-hints-a"></div></div>
+      <div class="ol-panel"><span class="ol-kicker">SIGNAL NOTEBOOK</span><h3>Which signals actually helped?</h3><p class="ol-muted">Tick the signals that helped you decide. This goes into your handoff summary for the detection engineer.</p><div id="tl-signals" class="tl-signals"></div></div>
+    </div>
+    <div class="ol-step"><span>STEP 6</span><strong>Findings summary &amp; handoff</strong><small>Talk to Workstation B</small></div>
+    <div id="tl-findings"></div>
+    <div class="ol-checkpoint" id="tl-check-a"></div>
+  </section>
+
+  <!-- ===================== WORKSTATION B ===================== -->
+  <section data-panel="b" role="tabpanel" aria-label="Workstation B: Detection Engineer" hidden>
+    <div class="ol-step"><span>STEP 1</span><strong>Configure the risk-scoring rules</strong><small>Starts with last night's imperfect settings</small></div>
+    <div class="tl-eng">
+      <div class="ol-panel tl-console">
+        <div class="tl-console-head"><span class="ol-kicker">RULE CONSOLE · detector.rules</span><button type="button" id="tl-reset-rules" class="ol-btn ol-btn-quiet">Reset to last night's settings</button></div>
+        <p class="ol-muted">Each signal adds its weight to a risk score. If the score reaches the alert level, the login is flagged for the security team.</p>
+        <div id="tl-rules"></div>
+        <div id="tl-hints-b"></div>
+      </div>
+      <div class="ol-panel tl-evalpanel">
+        <div class="tl-console-head"><span class="ol-kicker">STEP 2–6 · EVALUATION BENCH</span>
+          <label class="tl-inline"><input type="checkbox" id="tl-include-bonus"> include new incidents (bonus)</label></div>
+        <div class="tl-runbar"><button id="tl-run" type="button" class="ol-btn ol-btn-primary">▶ Run evaluation</button><span id="tl-run-status" class="ol-muted">16 labelled historical logins · 7 attacks · 9 legitimate</span>
+          <span id="tl-eval-stale" class="ol-chip warn" hidden>Rules changed — re-run to see the effect</span></div>
+        <div id="tl-metrics"><p class="ol-muted">Run the evaluation to see how last night's rules perform.</p></div>
+        <div class="tl-table-wrap tl-results-wrap"><table class="tl-table tl-small"><thead><tr><th>Case</th><th>Description</th><th>Signals scored</th><th>Score</th><th>Truth</th><th>Result</th></tr></thead><tbody id="tl-results"></tbody></table></div>
+        <h3 style="margin-top:14px">Run history</h3>
+        <table class="tl-table tl-small"><thead><tr><th>Run</th><th>Settings</th><th>Caught</th><th>False</th><th>Quality</th><th>Meets</th></tr></thead><tbody id="tl-history"></tbody></table>
+      </div>
+    </div>
+    <div class="ol-two" style="margin-top:14px">
+      <div class="ol-panel"><span class="ol-kicker">ANALYST CASES · FROM WORKSTATION A</span><h3>Does your detector agree with the analyst?</h3><div id="tl-analyst-entry"></div><div id="tl-analyst-cases"></div></div>
+      <div class="ol-panel"><span class="ol-kicker">STEP 7 · RELEASE PROPOSAL</span><h3>Hand your detector to the analyst</h3><div id="tl-release"></div></div>
+    </div>
+    <div class="ol-checkpoint" id="tl-check-b"></div>
+  </section>
+
+  <!-- ===================== JOINT ===================== -->
+  <section data-panel="joint" role="tabpanel" aria-label="Joint release review" hidden>
+    <div class="ol-step"><span>JOINT · BOTH WORKSTATIONS</span><strong>Is the detector ready to switch back on?</strong><small>Swap codes · compare · decide</small></div>
+    <div id="tl-joint-codes"></div>
+    <div class="ol-panel" style="margin-top:14px"><span class="ol-kicker">COMBINED VIEW</span><h3>Detector decisions on today's live events</h3><div id="tl-joint-combined"></div></div>
+    <div class="ol-two" style="margin-top:14px">
+      <div class="ol-panel"><span class="ol-kicker">RELEASE REVIEW CHECKLIST</span><h3>Talk it through</h3><div id="tl-checklist" class="tl-signals"></div></div>
+      <div class="ol-panel"><span class="ol-kicker">RELEASE DECISION · SIMULATION</span><h3>Approve or hold?</h3><div id="tl-decision"></div></div>
+    </div>
+    <div class="ol-checkpoint" id="tl-check-joint"></div>
+    <div class="ol-key" id="tl-key"><div class="ol-key-glyph" id="tl-key-glyph" aria-hidden="true">◇</div><div><small>RECOVERY KEY</small><strong>AI DEFENCE ACTIVATED</strong><small id="tl-key-sub">Unlocks when the server confirms A, B and joint sign-offs.</small></div></div>
+  </section>
+
+  <!-- ===================== BONUS ===================== -->
+  <section data-panel="bonus" role="tabpanel" aria-label="Bonus: new incidents" hidden>
+    <div class="ol-step"><span>OPTIONAL · FAST TEAMS</span><strong>Two new incidents just arrived</strong><small>Catch the new attack without blocking the director</small></div>
+    <div id="tl-bonus-cases" class="ol-grid2"></div>
+    <div class="ol-panel" style="margin-top:14px"><span class="ol-kicker">YOUR CHALLENGE</span><h3>Improve the detector — without disrupting legitimate staff</h3>
+      <p>Your released rules probably miss the first incident, or flag the second. Add both to the test suite, retune and re-run. Requirement: catch at least 7 of 8 attacks with no more than 1 false alarm.</p>
+      <div id="tl-bonus-status"></div>
+      <button type="button" id="tl-bonus-open" class="ol-btn ol-btn-primary">Open the detector with the new incidents →</button>
+    </div>
+    <div class="ol-checkpoint" id="tl-check-bonus"></div>
+  </section>
+  </div>
+
+  <p class="tl-footnote"><span class="ol-sim-tag">THIS COMPUTER ONLY</span> Classifications, rules and runs are saved in this browser tab so a refresh doesn't lose your work. Only Mission Control sign-offs change your group's official score. <button type="button" id="tl-reset-sim" class="ol-btn ol-btn-quiet">Reset simulation on this computer</button></p>
+  <footer class="site-footer"><span>OPERATION LOCKDOWN 2.0</span><span>TRAIN IT · SECURITY ANALYTICS LAB</span><span>RETURN TO <a href="/">MISSION HUB</a></span></footer>
 </main>
 <script src="/assets/js/ui.js" defer></script>
 <script type="module" src="/assets/js/train.js"></script>
