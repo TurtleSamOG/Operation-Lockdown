@@ -128,6 +128,91 @@ a.ol-btn{text-decoration:none}
 .tl-footnote{margin-top:56px!important}
 .site-footer{margin-top:40px}
 .ol-check-opt{margin:0 0 4px!important;font-weight:600}.ol-check-q legend{margin-bottom:8px}
+/* ===== v3 · guided steps, calmer layout, readability ===== */
+.system{font-size:1.02rem}
+.ol-panel p,.ol-check-intro,.ol-handoff p{font-size:.98rem;line-height:1.7}
+/* compact zone heroes: the mission, not a wall of text */
+.tl-hero,.fx-hero,.dt-hero{margin-bottom:28px!important;align-items:center!important}
+.tl-title,.fx-title,.dt-title{font-size:clamp(2rem,3.6vw,3.1rem)!important;margin:.2rem 0 .6rem!important}
+.tl-lead{font-size:1.02rem;line-height:1.75!important;max-width:62ch}
+.tl-honest{font-size:.8rem!important;opacity:.85}
+.tl-feed,.fx-ticketfeed{font-size:.82rem}
+.ol-status-strip{margin-bottom:28px}
+/* stepper */
+.ol-stepper{position:sticky;top:0;z-index:5;background:linear-gradient(#08131fee 70%,#08131f00);padding:14px 0 18px;margin:8px 0 4px}
+.ol-stepnav{list-style:none;margin:0;padding:0;display:flex;gap:10px;flex-wrap:wrap}
+.ol-stepbtn{display:flex;align-items:center;gap:10px;border:1px solid #24405a;background:#0d1c2b;color:#9fb8c8;border-radius:99px;padding:.45rem 1rem .45rem .45rem;font-weight:750;font-size:.92rem;transition:all .15s}
+.ol-stepbtn b{width:30px;height:30px;border-radius:50%;display:grid;place-items:center;background:#16293b;color:#cfe3ef;font-size:.85rem;flex:none}
+.ol-stepbtn:hover{border-color:var(--zone,#5ff0dc);color:#e8f6ff}
+.ol-stepbtn.is-current{border-color:var(--zone,#5ff0dc);background:#11283a;color:#fff;box-shadow:0 0 0 3px #5ff0dc1f}
+.ol-stepbtn.is-current b{background:var(--zone,#5ff0dc);color:#05242c}
+.ol-stepbtn.is-seen b{background:#1d3a4f}
+.ol-stepbtn.is-done{color:#a6f3d2;border-color:#2c6e57}.ol-stepbtn.is-done b{background:#2f9e76;color:#03201a}
+.ol-stepgroup{animation:ol-stepin .3s ease-out}
+@keyframes ol-stepin{from{opacity:0;transform:translateY(8px)}}
+.ol-stepgroup>.ol-step{display:block;margin:18px 0 26px!important;padding:0 0 22px;border-bottom:1px solid #1d3446}
+.ol-stepgroup>.ol-step span{display:block;margin-bottom:8px;font-size:.72rem}
+.ol-stepgroup>.ol-step strong{display:block;font-size:clamp(1.5rem,2.4vw,2rem);letter-spacing:-.025em;line-height:1.15}
+.ol-stepgroup>.ol-step small{display:block;margin:12px 0 0!important;text-align:left;font-size:1.05rem;line-height:1.7;color:#c4d7e3!important;max-width:75ch}
+.ol-stepgroup>.ol-checkpoint{margin-top:0}
+.ol-stepfoot{display:flex;align-items:center;gap:14px;margin:40px 0 10px;padding:22px 0 0;border-top:1px solid #1d3446}
+.ol-stepfoot .ol-next{margin-left:auto;font-size:1rem;padding:.8rem 1.4rem}
+.ol-stepcount{color:#7f9cb1;font-size:.88rem;font-family:ui-monospace,Consolas,monospace}
+/* locked / final decisions */
+.ol-locked{display:inline-block;margin:.6rem 0 0;font-weight:750;font-size:.9rem;color:#ffe0a2;background:#2a2313;border:1px solid #6e5a2c;border-radius:9px;padding:.45rem .75rem}
+.ol-check-final{border:1px solid #2c6e57;background:#0f2a22;border-radius:14px;padding:18px 20px}
+.ol-check-final strong{font-size:1.15rem;color:#a6f3d2}.ol-check-final p{margin:.4rem 0 0;color:#cfeee2}
+.ol-role-note{border-left:3px solid var(--zone,#5ff0dc);background:#0d1d2a;padding:.7rem 1rem;border-radius:0 10px 10px 0;font-size:.98rem;line-height:1.6}
+.dt-outcome{border-color:#2c6e57!important}
+@media (max-width:900px){.ol-stepbtn span{display:none}.ol-stepbtn{padding:.35rem}}
+/* ===== Live attack takeover (.la-*) ===== */
+body.la-locked{overflow:hidden}
+.la-overlay{position:fixed;inset:0;z-index:200;background:radial-gradient(ellipse at 50% 0%,#3a0f18f2,#07080ef7 70%);display:flex;align-items:flex-start;justify-content:center;overflow:auto;padding:4vh 3vw;animation:la-in .35s ease-out}
+@keyframes la-in{from{opacity:0}}
+.la-panel{width:min(980px,100%);background:#0d1520;border:2px solid #ff5d72;border-radius:22px;padding:clamp(20px,3vw,34px);box-shadow:0 0 0 8px #ff5d7222,0 40px 120px #000c}
+.la-head{display:flex;gap:18px;align-items:center}
+.la-pulse{width:66px;height:66px;border-radius:50%;display:grid;place-items:center;font-size:2rem;background:#ff5d72;flex:none;animation:la-pulse 1.1s infinite}
+@keyframes la-pulse{0%,100%{box-shadow:0 0 0 0 #ff5d7288}50%{box-shadow:0 0 0 18px #ff5d7200}}
+.la-kicker{font-family:ui-monospace,Consolas,monospace;font-size:.7rem;letter-spacing:.14em;color:#ff9fac;font-weight:800;margin:0}
+.la-head h2,.la-done h2{margin:.2rem 0 0;font-size:clamp(1.6rem,3vw,2.4rem);letter-spacing:-.03em}
+.la-clock{margin-left:auto;text-align:right}.la-clock strong{display:block;font-family:ui-monospace,Consolas,monospace;font-size:2.2rem;color:#ffd0d6}.la-clock small{color:#ffb3bd;font-size:.78rem}
+.la-timebar{height:6px;background:#2a1820;border-radius:99px;margin:16px 0;overflow:hidden}.la-timebar i{display:block;height:100%;background:linear-gradient(90deg,#ff5d72,#ffb083);transition:width 1s linear}
+.la-intro{font-size:1.05rem;line-height:1.65;color:#e5d9dd}
+.la-ransom{background:#1b0004;border:1px solid #ff2f4b;border-radius:12px;padding:14px 18px;margin:10px 0;display:flex;flex-direction:column;gap:4px;font-family:ui-monospace,Consolas,monospace}
+.la-ransom strong{color:#ff4d63;font-size:1.2rem;letter-spacing:.05em}.la-ransom span{color:#ffc2c9}
+.la-graph{display:flex;align-items:flex-end;gap:4px;height:90px;background:#101b26;border-radius:12px;padding:10px;margin:10px 0}
+.la-graph i{flex:1;background:linear-gradient(#ff5d72,#ffb083);border-radius:3px 3px 0 0;min-height:4px}
+.la-items{display:flex;flex-direction:column;gap:12px;margin:16px 0}
+.la-item{border:1px solid #3a2a33;border-radius:14px;padding:12px 14px;background:#121c28}
+.la-item legend{font-weight:750;font-size:1rem;padding:0 6px;line-height:1.4}
+.la-mail{display:flex;flex-direction:column;gap:2px}.la-mail small{color:#9fb8c8;font-weight:600}.la-mail span{color:#c8d6df;font-weight:500;font-size:.9rem}
+.la-opts{display:flex;flex-wrap:wrap;gap:8px;margin-top:8px}
+.la-opt{display:flex;gap:8px;align-items:center;border:1px solid #2f4456;border-radius:10px;padding:.55rem .8rem;cursor:pointer;font-size:.92rem;margin:0!important;color:#e5eef4;font-weight:600}
+.la-opt:has(input:checked){border-color:#ffb083;background:#2a1e18}.la-opt input{accent-color:#ff8a5c}
+.la-foot{display:flex;gap:14px;align-items:center;justify-content:space-between;flex-wrap:wrap;border-top:1px solid #2a2a36;padding-top:16px;color:#c3b4ba;font-size:.88rem}
+.la-submit{border:0;border-radius:12px;padding:.9rem 1.5rem;font-weight:900;font-size:1rem;background:linear-gradient(135deg,#ff8a5c,#ff5d72);color:#1a0508}
+.la-submit:disabled{opacity:.4;cursor:not-allowed}
+.la-err{color:#ffb3bd;min-height:1.2em;margin:.5rem 0 0}
+.la-done{border-color:#43d6a6;box-shadow:0 0 0 8px #43d6a622,0 40px 120px #000c}.la-done h2{color:#a6f3d2}
+.la-late{border-color:#e2b552}.la-late h2{color:#ffe0a2}
+.la-feedback{list-style:none;padding:0;display:flex;flex-direction:column;gap:8px}
+.la-feedback li{border-radius:10px;padding:.6rem .8rem;line-height:1.5;font-size:.92rem}.la-feedback li.ok{background:#0f2a22}.la-feedback li.no{background:#2a141b}
+.la-feedback b{color:#a6f3d2}.la-feedback li.no b{color:#ff98a6}
+button.la-opt{background:#0f1a25;text-align:left;font:inherit;font-weight:600}
+button.la-opt:hover:not(:disabled){border-color:#ffb083;background:#1d2530}
+button.la-opt:disabled{cursor:default;opacity:.45}
+button.la-opt.is-chosen{opacity:1;border-color:#ffb083;background:#2a1e18;box-shadow:inset 0 0 0 1px #ffb083}
+button.la-opt.is-wait{opacity:.7;cursor:progress}
+.la-item.is-locked{border-color:#5a4a3a;background:#151a22}
+.la-lock{margin:.5rem 0 0;font-size:.82rem;color:#ffcfa8;font-weight:700}
+.la-rule{background:#2a1e18;border:1px solid #6a4a32;border-radius:10px;padding:.6rem .9rem;color:#ffd9bd;font-size:.9rem;margin:10px 0 0}
+.la-count{font-family:ui-monospace,Consolas,monospace;color:#ffd0d6;font-size:1rem}
+.la-note{border-color:#6a7f94;background:#101b26}.la-note strong{color:#ffd0a0;font-size:1.05rem}.la-note span{color:#d4e0e8}
+.la-debrief{position:fixed;left:50%;bottom:24px;transform:translateX(-50%);z-index:120;width:min(1100px,94vw);background:#0d1520f5;border:2px solid #43d6a6;border-radius:18px;padding:18px 24px;box-shadow:0 30px 90px #000b}
+.la-debrief h3{margin:0 0 10px;color:#a6f3d2;font-size:1.3rem}
+.la-debrief ol{margin:0;padding-left:1.2rem;display:flex;flex-direction:column;gap:8px}
+.la-debrief li{line-height:1.45}.la-debrief li strong{color:#fff}.la-debrief li span{color:#c3d3dd;font-size:.92rem}
+.la-debrief .la-best{color:#a6f3d2;font-weight:800}
 
 /* ===== Fix It · development & QA workspace (scoped .fx-*, .nh-* = fictional portal) ===== */
 .fx-shell{--zone:#a996ff;max-width:1450px}
@@ -224,6 +309,12 @@ a.ol-btn{text-decoration:none}
 .fx-browser .fx-url{border:0!important;border-radius:0 7px 7px 0}
 .fx-page label,.fx-page .nh-label{color:#2a3a4e!important;font-weight:700}
 .fx-toolbar label{color:#cfd8e6!important;margin:0}
+.nh-posts{display:flex;flex-direction:column;gap:8px;margin:.6rem 0 1rem}
+.nh-post{background:#fff;border:1px solid #e1e6ec;border-radius:8px;padding:.6rem .8rem;line-height:1.5}
+.nh-mono{white-space:pre-wrap}
+.nh-post-ran{border-color:#e0485e;background:#fff0f1}
+.nh-xss{margin-top:6px;background:#22141a;color:#ffd0d6;border-radius:8px;padding:.6rem .8rem;border-left:4px solid #e0485e;display:flex;flex-direction:column;gap:3px;font-size:.86rem;animation:ol-pop .35s ease-out}
+.nh-xss strong{color:#ff8f9e}
 
 </style>
 </head>
@@ -263,12 +354,12 @@ a.ol-btn{text-decoration:none}
     <button class="ol-tab" role="tab" data-tab="a" aria-selected="true"><span>01</span><span>Test the portal<small>Workstation A · Tester</small></span><span class="ol-you" data-for="A" hidden>YOU</span><b id="fx-tab-a">open</b></button>
     <button class="ol-tab" role="tab" data-tab="b" aria-selected="false"><span>02</span><span>Patch &amp; test<small>Workstation B · Developer</small></span><span class="ol-you" data-for="B" hidden>YOU</span><b id="fx-tab-b">open</b></button>
     <button class="ol-tab" role="tab" data-tab="joint" aria-selected="false"><span>03</span><span>Retest &amp; release<small>Both workstations</small></span><b id="fx-tab-joint">open</b></button>
-    <button class="ol-tab" role="tab" data-tab="bonus" aria-selected="false"><span>+</span><span>Regression<small>Optional · fast teams</small></span><b id="fx-tab-bonus">optional</b></button>
+    <button class="ol-tab" role="tab" data-tab="bonus" aria-selected="false" hidden><span>+</span><span>Regression<small>Optional · fast teams</small></span><b id="fx-tab-bonus">optional</b></button>
   </div>
 
   <!-- ===================== A: TESTER ===================== -->
   <section data-panel="a" role="tabpanel" aria-label="Workstation A: Software Tester">
-    <div class="ol-step"><span>STEP 1–4</span><strong>Explore the portal as different users</strong><small>Normal actions first · then try to break it</small></div>
+    <div class="ol-step"><span>STEP 1</span><strong>Explore the portal</strong><small>Switch between Guest, Sam (employee) and Ria (HR admin). Open staff profiles, post on the noticeboard, try the contact form with normal and silly input, and try signing in. Change your password too. There are at least five problems to find. Watch the Activity panel for findings.</small></div>
     <div class="fx-testbed">
       <div id="fx-portal-a">
         <div class="fx-browser" id="fx-browser">
@@ -294,13 +385,13 @@ a.ol-btn{text-decoration:none}
         <div id="fx-hints-a"></div>
       </aside>
     </div>
-    <div class="ol-step"><span>STEP 5–7</span><strong>File structured bug reports</strong><small><span id="fx-found">0 findings</span> · triaged by the engineering lead</small></div>
+    <div class="ol-step"><span>STEP 2</span><strong>Report the bugs</strong><small>Fill in a bug report for each problem you found. Triage sends back reports that are vague or have the wrong severity — fix them and resubmit.</small></div>
     <div class="ol-two">
       <form id="fx-report-form" class="ol-panel fx-form">
         <span class="ol-kicker">NEW BUG REPORT</span>
         <label>Issue title <input id="fx-r-title" maxlength="80" placeholder="e.g. Guests can see private HR records" autocomplete="off"></label>
         <div class="fx-row2">
-          <label>Affected feature <select id="fx-r-feature"><option value="profiles">Staff profile pages</option><option value="contact">Contact details form</option><option value="login">Sign-in page</option><option value="directory">Staff directory</option></select></label>
+          <label>Affected feature <select id="fx-r-feature"><option value="profiles">Staff profile pages</option><option value="contact">Contact details form</option><option value="board">Staff noticeboard</option><option value="password">Change password page</option><option value="login">Sign-in page</option><option value="directory">Staff directory</option></select></label>
           <label>Severity <select id="fx-r-sev"><option>Low</option><option selected>Medium</option><option>High</option><option>Critical</option></select></label>
         </div>
         <label>Observed behaviour (only things you triggered) <select id="fx-r-observed"></select></label>
@@ -313,24 +404,30 @@ a.ol-btn{text-decoration:none}
           <option value="safe-error">Invalid input is rejected with a helpful message, and failures show a safe message with no internal details</option>
           <option value="hide-form">Disable the contact form</option>
           <option value="same-login">Wrong username and wrong password give the same message</option>
+          <option value="pw-length">Require long passwords (12+ characters, e.g. three random words) and block common ones</option>
+          <option value="pw-complex">Require a capital letter, a number and a symbol</option>
+          <option value="pw-short">Limit passwords to 8 characters so they are easier to remember</option>
+          <option value="show-as-text">Every post is shown exactly as plain text — code inside a message is displayed, never run</option>
+          <option value="block-script">Remove the word &lt;script&gt; from posts</option>
+          <option value="close-board">Turn the noticeboard off permanently</option>
           <option value="colour">Make the error message red so users notice it</option></select></label>
         <p class="ol-muted">Reproduction steps are attached automatically from your notebook.</p>
         <div class="fx-row2"><button type="submit" class="ol-btn ol-btn-primary">Submit to triage</button><span id="fx-r-msg" role="status" class="ol-muted"></span></div>
       </form>
       <div class="ol-panel"><span class="ol-kicker">ISSUE TRACKER</span><h3>Your tickets</h3><div id="fx-reports"></div></div>
     </div>
-    <div id="fx-handoff-a" style="margin-top:12px"></div>
-    <div class="ol-checkpoint" id="fx-check-a"></div>
+    <div class="ol-step"><span>STEP 3</span><strong>Hand off to the developer</strong><small>Read the accepted bugs out loud to Workstation B and give them your bug code.</small></div><div id="fx-handoff-a" style="margin-top:12px"></div>
+    <div class="ol-step"><span>STEP 4</span><strong>Sign off</strong><small>Answer Mission Control’s questions. Once you pass, your answers are locked in.</small></div><div class="ol-checkpoint" id="fx-check-a"></div>
   </section>
 
   <!-- ===================== B: DEVELOPER ===================== -->
   <section data-panel="b" role="tabpanel" aria-label="Workstation B: Software Developer" hidden>
-    <div class="ol-step"><span>STEP 1–4</span><strong>Read the code, choose a repair</strong><small>Patch points are highlighted · nothing here executes on a real server</small></div>
+    <div class="ol-step"><span>STEP 1</span><strong>Patch and test</strong><small>Type in the tester’s bug code. Open each file, pick a repair from the highlighted drop-down, then press “Apply patch &amp; run tests” (below the editor). Read the FAIL lines, adjust, and run again until everything passes. Then read your build code to the tester.</small></div>
     <div class="fx-ide">
       <aside class="fx-files">
         <span class="ol-kicker">EXPLORER</span>
         <div class="fx-tree" role="group" aria-label="Files"><span class="fx-dir">northstar-hub/</span>
-          <button type="button" data-file="routes/profile.js">routes/profile.js</button><button type="button" data-file="forms/contact.js">forms/contact.js</button><button type="button" data-file="auth/login.js">auth/login.js</button></div>
+          <button type="button" data-file="routes/profile.js">routes/profile.js</button><button type="button" data-file="forms/contact.js">forms/contact.js</button><button type="button" data-file="views/noticeboard.js">views/noticeboard.js</button><button type="button" data-file="auth/password.js">auth/password.js</button><button type="button" data-file="auth/login.js">auth/login.js</button></div>
         <span class="ol-kicker" style="margin-top:14px;display:block">TICKETS FROM TESTER</span>
         <div id="fx-ticket-entry"></div><div id="fx-tickets"></div>
       </aside>
@@ -340,7 +437,7 @@ a.ol-btn{text-decoration:none}
         <div class="fx-diffbox"><span class="ol-kicker">PENDING CHANGES (DIFF vs LIVE)</span><div id="fx-diff"></div></div>
       </div>
     </div>
-    <div class="ol-step"><span>STEP 5–8</span><strong>Apply, run the tests, correct, re-run</strong><small>The runner evaluates your exact patch choices</small></div>
+    
     <div class="ol-two">
       <div class="ol-panel fx-runner">
         <div class="tl-runbar"><button type="button" id="fx-run" class="ol-btn ol-btn-primary">▶ Apply patch &amp; run tests</button><span id="fx-stale" class="ol-muted">No build tested yet</span></div>
@@ -351,12 +448,12 @@ a.ol-btn{text-decoration:none}
         <div id="fx-handoff-b" style="margin-top:12px"></div>
       </div>
     </div>
-    <div class="ol-checkpoint" id="fx-check-b"></div>
+    <div class="ol-step"><span>STEP 2</span><strong>Sign off</strong><small>Answer Mission Control’s questions. Once you pass, your answers are locked in.</small></div><div class="ol-checkpoint" id="fx-check-b"></div>
   </section>
 
   <!-- ===================== JOINT ===================== -->
   <section data-panel="joint" role="tabpanel" aria-label="Retest and release" hidden>
-    <div class="ol-step"><span>JOINT · BOTH WORKSTATIONS</span><strong>Retest the original defects on the developer's build</strong><small>Tester drives · developer watches the results</small></div>
+    <div class="ol-step"><span>STEP 1</span><strong>Retest the fixed portal</strong><small>Type in the developer’s build code, then repeat your original tests as guest, employee and HR admin. The checklist ticks itself.</small></div>
     <div class="fx-testbed">
       <div id="fx-portal-joint"></div>
       <aside class="ol-panel fx-side">
@@ -368,29 +465,30 @@ a.ol-btn{text-decoration:none}
         <p id="fx-retest-sum" class="ol-muted"></p>
       </aside>
     </div>
-    <div class="ol-panel" style="margin-top:14px"><span class="ol-kicker">RELEASE DECISION · SIMULATION</span><h3>Can the portal safely return to service?</h3><div id="fx-decision"></div></div>
-    <div class="ol-checkpoint" id="fx-check-joint"></div>
+    <div class="ol-step"><span>STEP 2</span><strong>Decide together</strong><small>Can the portal go back online? Your decision is final.</small></div><div class="ol-panel" style="margin-top:14px"><span class="ol-kicker">RELEASE DECISION · SIMULATION</span><h3>Can the portal safely return to service?</h3><div id="fx-decision"></div></div>
+    <div class="ol-step"><span>STEP 3</span><strong>Final sign-off</strong><small>Agree every answer, send it, and collect your recovery key.</small></div><div class="ol-checkpoint" id="fx-check-joint"></div>
     <div class="ol-key" id="fx-key"><div class="ol-key-glyph" id="fx-key-glyph" aria-hidden="true">◇</div><div><small>RECOVERY KEY</small><strong>PORTAL SECURED</strong><small id="fx-key-sub">Unlocks when the server confirms A, B and joint sign-offs.</small></div></div>
   </section>
 
   <!-- ===================== BONUS ===================== -->
   <section data-panel="bonus" role="tabpanel" aria-label="Bonus: regression" hidden>
-    <div class="ol-step"><span>OPTIONAL · FAST TEAMS</span><strong>Build #025 broke something that used to work</strong><small>Investigate · correct · retest</small></div>
+    <div class="ol-step"><span>STEP 1</span><strong>Find the regression</strong><small>A hotfix broke something that used to work. The developer deploys it, runs the tests and repairs it — without deleting tests or losing the speed-up.</small></div>
     <div class="ol-two">
       <div class="fx-incident"><span class="ol-kicker">ALERT · 09:58</span><h3>“HR can't open profiles any more”</h3>
         <p>To speed up profile pages, another developer added a permission cache and pushed it straight to the portal. Within minutes, HR reported they were blocked from records they need. Someone else says they saw a record they shouldn't have.</p>
         <p>Deploy the hotfix into your workspace, run the regression tests, find the line responsible and fix it <em>without</em> throwing away the performance improvement or deleting tests.</p>
-        <button type="button" id="fx-hotfix" class="ol-btn ol-btn-primary">Deploy hotfix #025 into my workspace</button></div>
+        <p id="fx-bonus-role" class="ol-role-note"></p><button type="button" id="fx-hotfix" class="ol-btn ol-btn-primary">Deploy hotfix #025 into my workspace</button></div>
       <div class="ol-panel"><span class="ol-kicker">WHAT TESTERS CAN DO</span><p>The tester can load the developer's newest build code and try: open a profile as HR admin, then as guest — or the other way round. Order matters with a bad cache.</p></div>
     </div>
-    <div class="ol-checkpoint" id="fx-check-bonus"></div>
+    <div class="ol-step"><span>STEP 2</span><strong>Bonus sign-off</strong><small>Explain how a team should respond to a regression.</small></div><div class="ol-checkpoint" id="fx-check-bonus"></div>
   </section>
   </div>
 
-  <p class="tl-footnote"><span class="ol-sim-tag">THIS COMPUTER ONLY</span> Findings, tickets and patches are saved in this browser tab. Only Mission Control sign-offs change your group's official score. <button type="button" id="fx-reset-sim" class="ol-btn ol-btn-quiet">Reset simulation on this computer</button></p>
+  <p class="tl-footnote"><span class="ol-sim-tag">THIS COMPUTER ONLY</span> Findings, tickets and patches are saved in this browser tab. Only Mission Control sign-offs change your group's official score. <button type="button" id="fx-reset-sim" class="ol-btn ol-btn-quiet">Staff: reset this computer</button></p>
   <footer class="site-footer"><span>OPERATION LOCKDOWN 2.0</span><span>FIX IT · SOFTWARE QUALITY &amp; SECURITY</span><span>ALL USERS AND DATA IN THIS EXERCISE ARE FICTIONAL</span></footer>
 </main>
 <script src="/assets/js/ui.js" defer></script>
 <script type="module" src="/assets/js/fix-it.js"></script>
+<script type="module" src="/assets/js/live-attack.js"></script>
 </body>
 </html>

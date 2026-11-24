@@ -7,7 +7,7 @@
  *
  * This module never grades official tasks and never contains server answers.
  */
-import {getSession, getTeamState, getTasks, submitTask, completeZone} from './api.js';
+import {getSession, getTeamState, getTasks, submitTask, completeZone, getLeaderboard} from './api.js';
 
 /* ---------- Shared fiction ---------- */
 export const STORY = {
@@ -181,7 +181,17 @@ export function createZone({zone, tasks, pollMs = 5000}) {
     canSubmit(view) { const station = ctrl.stationFor(view); return !['A', 'B'].includes(station) || station === ctrl.workstation; },
     busy() { return inFlight.size > 0 || ctrl.keyBusy; },
     zoneStatus() { return ctrl.state?.zones?.[zone] || {completed:0, total:3, keyEarned:false, finished:false}; },
+    timer:null,
+    /** Seconds left in the current rotation from the facilitator timer, or null if unknown. */
+    secondsLeft() {
+      if (!ctrl.timer) return null;
+      const elapsed = ctrl.timer.timerRunning ? (Date.now() - ctrl.timer.at) / 1000 : 0;
+      return Math.max(0, ctrl.timer.secondsRemaining - elapsed);
+    },
   };
+  async function readTimer() {
+    try { const d = await getLeaderboard(); ctrl.timer = {...d.settings, at:Date.now()}; } catch { /* timer unknown: bonus rule fails open */ }
+  }
   let lastSignature = '';
   function adopt(next) {
     // Mutation responses are group snapshots without the login's workstation; keep ours.
@@ -226,7 +236,7 @@ export function createZone({zone, tasks, pollMs = 5000}) {
   };
   ctrl.start = async () => {
     await getSession();
-    const [state, loaded] = await Promise.all([getTeamState(), getTasks(zone)]);
+    const [state, loaded] = await Promise.all([getTeamState(), getTasks(zone), readTimer()]);
     ctrl.workstation = state.workstation || 'A';
     for (const task of loaded.tasks || []) ctrl.catalog.set(task.taskId, task);
     ctrl.ready = true;
@@ -242,7 +252,8 @@ export function createZone({zone, tasks, pollMs = 5000}) {
         if (error.status === 401) clearInterval(timer);
       }
     }, pollMs);
-    window.addEventListener('pagehide', () => clearInterval(timer));
+    const timerPoll = setInterval(() => { if (!document.hidden) readTimer().then(() => listeners.forEach(fn => fn(ctrl.state, false))); }, 15000);
+    window.addEventListener('pagehide', () => { clearInterval(timer); clearInterval(timerPoll); });
     return ctrl.state;
   };
   return ctrl;
@@ -274,15 +285,26 @@ export function checkpoint(container, ctrl, view, {intro, lockReason = () => nul
       el('small', {}, `${task.passPercent}% to pass · ${task.station === 'joint' ? 'either workstation' : task.station === 'bonus' ? 'optional · either workstation' : 'Workstation ' + task.station + ' only'}`)),
     intro ? el('p', {class:'ol-check-intro'}, intro) : null, lockNote, form);
   let sending = false;
+  const lockedNote = el('div', {class:'ol-check-final', hidden:true});
+  node.append(lockedNote);
   function update() {
     const saved = ctrl.result(view);
+    if (saved?.passed) {
+      form.hidden = true; lockNote.hidden = true;
+      lockedNote.hidden = false;
+      fill(lockedNote, el('strong', {}, `🔒 Signed off · ${saved.score}%`),
+        el('p', {}, saved.score === 100 ? 'Mission Control accepted every answer. This decision is final.'
+          : 'Mission Control accepted this sign-off. Some answers weren’t the best call — that is now part of your record and can’t be changed. Like real incidents, you live with your decisions.'));
+      node.classList.add('is-passed');
+      return;
+    }
     const reason = !ctrl.canSubmit(view) ? `This sign-off is submitted from Workstation ${ctrl.stationFor(view)}. Talk your partner through it.` : lockReason();
     lockNote.textContent = reason || '';
     lockNote.hidden = !reason;
     form.classList.toggle('is-locked', Boolean(reason));
     button.disabled = Boolean(reason) || sending;
-    button.textContent = sending ? 'Validating…' : saved?.passed ? 'Resubmit to improve' : 'Send to Mission Control';
-    status.textContent = saved ? `Server record: best ${saved.score}% · ${saved.passed ? 'PASSED' : 'not yet passed'} · ${saved.attempts} attempt${saved.attempts === 1 ? '' : 's'} by your group` : 'No result recorded yet';
+    button.textContent = sending ? 'Validating…' : 'Send to Mission Control';
+    status.textContent = saved ? `Not passed yet · ${saved.attempts} attempt${saved.attempts === 1 ? '' : 's'} so far` : 'Once you pass, your answers are final — choose carefully.';
     node.classList.toggle('is-passed', Boolean(saved?.passed));
   }
   form.addEventListener('submit', async event => {
@@ -300,7 +322,7 @@ export function checkpoint(container, ctrl, view, {intro, lockReason = () => nul
     try {
       const r = await ctrl.submit(view, answers);
       const attemptsNote = r.scored ? `${r.scoredAttemptsRemaining} scored attempt${r.scoredAttemptsRemaining === 1 ? '' : 's'} left for this unit.` : 'Practice attempt: no extra points, but it still counts for completion.';
-      if (r.passed) showFeedback('good', `Validated: ${r.correct}/${r.total} correct (${r.score}%). ${attemptsNote}`);
+      if (r.passed) showFeedback('good', `Validated: ${r.correct}/${r.total} correct (${r.score}%).`);
       else showFeedback('warn', `${r.correct}/${r.total} correct (${r.score}%) — not passed yet. Go back to your evidence, compare it with what the question asks, and discuss any answer you disagreed on. ${attemptsNote}`);
       onResult?.(r);
     } catch (error) {
@@ -311,6 +333,71 @@ export function checkpoint(container, ctrl, view, {intro, lockReason = () => nul
   ctrl.on(update);
   update();
   return {update};
+}
+
+/* ---------- Role lock: each workstation only sees its own station, the joint task and (when unlocked) the bonus ---------- */
+export function applyRoleTabs(workstation) {
+  const hide = workstation === 'A' ? 'b' : 'a';
+  document.querySelectorAll(`[data-tab="${hide}"], [data-panel="${hide}"]`).forEach(n => { n.hidden = true; n.setAttribute('aria-hidden', 'true'); });
+}
+
+/* ---------- Optional challenge: appears only if the zone is finished with enough of the rotation left ---------- */
+export const BONUS_MIN_MINUTES_LEFT = 8;
+/** 'open' | 'locked' (zone not finished) | 'late' (finished with < BONUS_MIN_MINUTES_LEFT minutes left). Once open, stays open. */
+export function bonusStatus(ctrl, store) {
+  if (ctrl.passed('bonus') || store.get('bonusUnlocked', false)) return 'open';
+  if (!ctrl.zoneStatus().keyEarned) return 'locked';
+  if (store.get('bonusLate', false)) return 'late';
+  const left = ctrl.secondsLeft();
+  if (left === null || left >= BONUS_MIN_MINUTES_LEFT * 60) { store.set('bonusUnlocked', true); return 'open'; }
+  store.set('bonusLate', true);
+  return 'late';
+}
+export function applyBonus(ctrl, store, {onUnlock} = {}) {
+  const status = bonusStatus(ctrl, store);
+  const tab = document.querySelector('[data-tab="bonus"]');
+  const wasHidden = tab?.hidden;
+  if (tab) tab.hidden = status !== 'open';
+  if (status === 'open' && wasHidden && ctrl.ready) { toast('You finished early — an optional challenge is now open.', 'success', 'Bonus unlocked'); onUnlock?.(); }
+  return status;
+}
+
+/* ---------- Guided steps: one step on screen at a time with clear Back / Next ----------
+ * Splits a panel at each .ol-step header. The header's <strong> is the step name and <small> is the instruction.
+ */
+export function stepify(panel, {key, isDone = () => false} = {}) {
+  if (!panel || panel.dataset.stepified) return null;
+  panel.dataset.stepified = '1';
+  const groups = [];
+  for (const child of [...panel.children]) {
+    if (child.classList.contains('ol-step') || !groups.length) groups.push({head:child.classList.contains('ol-step') ? child : null, nodes:[]});
+    groups[groups.length - 1].nodes.push(child);
+  }
+  const steps = groups.map((g, i) => ({title:g.head?.querySelector('strong')?.textContent || `Step ${i + 1}`, wrap:el('div', {class:'ol-stepgroup', dataset:{step:i}}, g.nodes)}));
+  const nav = el('ol', {class:'ol-stepnav'});
+  const back = el('button', {type:'button', class:'ol-btn ol-btn-quiet'}, '← Back');
+  const next = el('button', {type:'button', class:'ol-btn ol-btn-primary ol-next'});
+  const count = el('span', {class:'ol-stepcount'});
+  const foot = el('div', {class:'ol-stepfoot'}, back, count, next);
+  panel.replaceChildren(el('div', {class:'ol-stepper'}, nav), ...steps.map(s => s.wrap), foot);
+  let current = 0;
+  try { current = Math.min(steps.length - 1, Number(sessionStorage.getItem('ol2:step:' + key)) || 0); } catch { /* ignore */ }
+  const visited = new Set([current]);
+  function render(scroll) {
+    steps.forEach((s, i) => { s.wrap.hidden = i !== current; });
+    fill(nav, steps.map((s, i) => el('li', {}, el('button', {type:'button', class:`ol-stepbtn ${i === current ? 'is-current' : ''} ${isDone(i) ? 'is-done' : visited.has(i) && i !== current ? 'is-seen' : ''}`,
+      'aria-current':i === current ? 'step' : null, onclick:() => go(i)}, el('b', {}, isDone(i) ? '✓' : i + 1), el('span', {}, s.title)))));
+    back.hidden = current === 0;
+    next.hidden = current === steps.length - 1;
+    next.textContent = current < steps.length - 1 ? `Next: ${steps[current + 1].title} →` : '';
+    count.textContent = `Step ${current + 1} of ${steps.length}`;
+    if (scroll) panel.scrollIntoView({behavior:reducedMotion() ? 'auto' : 'smooth', block:'start'});
+  }
+  function go(i) { current = Math.max(0, Math.min(steps.length - 1, i)); visited.add(current); try { sessionStorage.setItem('ol2:step:' + key, String(current)); } catch { /* ignore */ } render(true); }
+  back.addEventListener('click', () => go(current - 1));
+  next.addEventListener('click', () => go(current + 1));
+  render(false);
+  return {go, refresh:() => render(false), get current() { return current; }, count:steps.length};
 }
 
 /* ---------- Page chrome helpers ---------- */

@@ -130,6 +130,91 @@ a.ol-btn{text-decoration:none}
 .tl-footnote{margin-top:56px!important}
 .site-footer{margin-top:40px}
 .ol-check-opt{margin:0 0 4px!important;font-weight:600}.ol-check-q legend{margin-bottom:8px}
+/* ===== v3 · guided steps, calmer layout, readability ===== */
+.system{font-size:1.02rem}
+.ol-panel p,.ol-check-intro,.ol-handoff p{font-size:.98rem;line-height:1.7}
+/* compact zone heroes: the mission, not a wall of text */
+.tl-hero,.fx-hero,.dt-hero{margin-bottom:28px!important;align-items:center!important}
+.tl-title,.fx-title,.dt-title{font-size:clamp(2rem,3.6vw,3.1rem)!important;margin:.2rem 0 .6rem!important}
+.tl-lead{font-size:1.02rem;line-height:1.75!important;max-width:62ch}
+.tl-honest{font-size:.8rem!important;opacity:.85}
+.tl-feed,.fx-ticketfeed{font-size:.82rem}
+.ol-status-strip{margin-bottom:28px}
+/* stepper */
+.ol-stepper{position:sticky;top:0;z-index:5;background:linear-gradient(#08131fee 70%,#08131f00);padding:14px 0 18px;margin:8px 0 4px}
+.ol-stepnav{list-style:none;margin:0;padding:0;display:flex;gap:10px;flex-wrap:wrap}
+.ol-stepbtn{display:flex;align-items:center;gap:10px;border:1px solid #24405a;background:#0d1c2b;color:#9fb8c8;border-radius:99px;padding:.45rem 1rem .45rem .45rem;font-weight:750;font-size:.92rem;transition:all .15s}
+.ol-stepbtn b{width:30px;height:30px;border-radius:50%;display:grid;place-items:center;background:#16293b;color:#cfe3ef;font-size:.85rem;flex:none}
+.ol-stepbtn:hover{border-color:var(--zone,#5ff0dc);color:#e8f6ff}
+.ol-stepbtn.is-current{border-color:var(--zone,#5ff0dc);background:#11283a;color:#fff;box-shadow:0 0 0 3px #5ff0dc1f}
+.ol-stepbtn.is-current b{background:var(--zone,#5ff0dc);color:#05242c}
+.ol-stepbtn.is-seen b{background:#1d3a4f}
+.ol-stepbtn.is-done{color:#a6f3d2;border-color:#2c6e57}.ol-stepbtn.is-done b{background:#2f9e76;color:#03201a}
+.ol-stepgroup{animation:ol-stepin .3s ease-out}
+@keyframes ol-stepin{from{opacity:0;transform:translateY(8px)}}
+.ol-stepgroup>.ol-step{display:block;margin:18px 0 26px!important;padding:0 0 22px;border-bottom:1px solid #1d3446}
+.ol-stepgroup>.ol-step span{display:block;margin-bottom:8px;font-size:.72rem}
+.ol-stepgroup>.ol-step strong{display:block;font-size:clamp(1.5rem,2.4vw,2rem);letter-spacing:-.025em;line-height:1.15}
+.ol-stepgroup>.ol-step small{display:block;margin:12px 0 0!important;text-align:left;font-size:1.05rem;line-height:1.7;color:#c4d7e3!important;max-width:75ch}
+.ol-stepgroup>.ol-checkpoint{margin-top:0}
+.ol-stepfoot{display:flex;align-items:center;gap:14px;margin:40px 0 10px;padding:22px 0 0;border-top:1px solid #1d3446}
+.ol-stepfoot .ol-next{margin-left:auto;font-size:1rem;padding:.8rem 1.4rem}
+.ol-stepcount{color:#7f9cb1;font-size:.88rem;font-family:ui-monospace,Consolas,monospace}
+/* locked / final decisions */
+.ol-locked{display:inline-block;margin:.6rem 0 0;font-weight:750;font-size:.9rem;color:#ffe0a2;background:#2a2313;border:1px solid #6e5a2c;border-radius:9px;padding:.45rem .75rem}
+.ol-check-final{border:1px solid #2c6e57;background:#0f2a22;border-radius:14px;padding:18px 20px}
+.ol-check-final strong{font-size:1.15rem;color:#a6f3d2}.ol-check-final p{margin:.4rem 0 0;color:#cfeee2}
+.ol-role-note{border-left:3px solid var(--zone,#5ff0dc);background:#0d1d2a;padding:.7rem 1rem;border-radius:0 10px 10px 0;font-size:.98rem;line-height:1.6}
+.dt-outcome{border-color:#2c6e57!important}
+@media (max-width:900px){.ol-stepbtn span{display:none}.ol-stepbtn{padding:.35rem}}
+/* ===== Live attack takeover (.la-*) ===== */
+body.la-locked{overflow:hidden}
+.la-overlay{position:fixed;inset:0;z-index:200;background:radial-gradient(ellipse at 50% 0%,#3a0f18f2,#07080ef7 70%);display:flex;align-items:flex-start;justify-content:center;overflow:auto;padding:4vh 3vw;animation:la-in .35s ease-out}
+@keyframes la-in{from{opacity:0}}
+.la-panel{width:min(980px,100%);background:#0d1520;border:2px solid #ff5d72;border-radius:22px;padding:clamp(20px,3vw,34px);box-shadow:0 0 0 8px #ff5d7222,0 40px 120px #000c}
+.la-head{display:flex;gap:18px;align-items:center}
+.la-pulse{width:66px;height:66px;border-radius:50%;display:grid;place-items:center;font-size:2rem;background:#ff5d72;flex:none;animation:la-pulse 1.1s infinite}
+@keyframes la-pulse{0%,100%{box-shadow:0 0 0 0 #ff5d7288}50%{box-shadow:0 0 0 18px #ff5d7200}}
+.la-kicker{font-family:ui-monospace,Consolas,monospace;font-size:.7rem;letter-spacing:.14em;color:#ff9fac;font-weight:800;margin:0}
+.la-head h2,.la-done h2{margin:.2rem 0 0;font-size:clamp(1.6rem,3vw,2.4rem);letter-spacing:-.03em}
+.la-clock{margin-left:auto;text-align:right}.la-clock strong{display:block;font-family:ui-monospace,Consolas,monospace;font-size:2.2rem;color:#ffd0d6}.la-clock small{color:#ffb3bd;font-size:.78rem}
+.la-timebar{height:6px;background:#2a1820;border-radius:99px;margin:16px 0;overflow:hidden}.la-timebar i{display:block;height:100%;background:linear-gradient(90deg,#ff5d72,#ffb083);transition:width 1s linear}
+.la-intro{font-size:1.05rem;line-height:1.65;color:#e5d9dd}
+.la-ransom{background:#1b0004;border:1px solid #ff2f4b;border-radius:12px;padding:14px 18px;margin:10px 0;display:flex;flex-direction:column;gap:4px;font-family:ui-monospace,Consolas,monospace}
+.la-ransom strong{color:#ff4d63;font-size:1.2rem;letter-spacing:.05em}.la-ransom span{color:#ffc2c9}
+.la-graph{display:flex;align-items:flex-end;gap:4px;height:90px;background:#101b26;border-radius:12px;padding:10px;margin:10px 0}
+.la-graph i{flex:1;background:linear-gradient(#ff5d72,#ffb083);border-radius:3px 3px 0 0;min-height:4px}
+.la-items{display:flex;flex-direction:column;gap:12px;margin:16px 0}
+.la-item{border:1px solid #3a2a33;border-radius:14px;padding:12px 14px;background:#121c28}
+.la-item legend{font-weight:750;font-size:1rem;padding:0 6px;line-height:1.4}
+.la-mail{display:flex;flex-direction:column;gap:2px}.la-mail small{color:#9fb8c8;font-weight:600}.la-mail span{color:#c8d6df;font-weight:500;font-size:.9rem}
+.la-opts{display:flex;flex-wrap:wrap;gap:8px;margin-top:8px}
+.la-opt{display:flex;gap:8px;align-items:center;border:1px solid #2f4456;border-radius:10px;padding:.55rem .8rem;cursor:pointer;font-size:.92rem;margin:0!important;color:#e5eef4;font-weight:600}
+.la-opt:has(input:checked){border-color:#ffb083;background:#2a1e18}.la-opt input{accent-color:#ff8a5c}
+.la-foot{display:flex;gap:14px;align-items:center;justify-content:space-between;flex-wrap:wrap;border-top:1px solid #2a2a36;padding-top:16px;color:#c3b4ba;font-size:.88rem}
+.la-submit{border:0;border-radius:12px;padding:.9rem 1.5rem;font-weight:900;font-size:1rem;background:linear-gradient(135deg,#ff8a5c,#ff5d72);color:#1a0508}
+.la-submit:disabled{opacity:.4;cursor:not-allowed}
+.la-err{color:#ffb3bd;min-height:1.2em;margin:.5rem 0 0}
+.la-done{border-color:#43d6a6;box-shadow:0 0 0 8px #43d6a622,0 40px 120px #000c}.la-done h2{color:#a6f3d2}
+.la-late{border-color:#e2b552}.la-late h2{color:#ffe0a2}
+.la-feedback{list-style:none;padding:0;display:flex;flex-direction:column;gap:8px}
+.la-feedback li{border-radius:10px;padding:.6rem .8rem;line-height:1.5;font-size:.92rem}.la-feedback li.ok{background:#0f2a22}.la-feedback li.no{background:#2a141b}
+.la-feedback b{color:#a6f3d2}.la-feedback li.no b{color:#ff98a6}
+button.la-opt{background:#0f1a25;text-align:left;font:inherit;font-weight:600}
+button.la-opt:hover:not(:disabled){border-color:#ffb083;background:#1d2530}
+button.la-opt:disabled{cursor:default;opacity:.45}
+button.la-opt.is-chosen{opacity:1;border-color:#ffb083;background:#2a1e18;box-shadow:inset 0 0 0 1px #ffb083}
+button.la-opt.is-wait{opacity:.7;cursor:progress}
+.la-item.is-locked{border-color:#5a4a3a;background:#151a22}
+.la-lock{margin:.5rem 0 0;font-size:.82rem;color:#ffcfa8;font-weight:700}
+.la-rule{background:#2a1e18;border:1px solid #6a4a32;border-radius:10px;padding:.6rem .9rem;color:#ffd9bd;font-size:.9rem;margin:10px 0 0}
+.la-count{font-family:ui-monospace,Consolas,monospace;color:#ffd0d6;font-size:1rem}
+.la-note{border-color:#6a7f94;background:#101b26}.la-note strong{color:#ffd0a0;font-size:1.05rem}.la-note span{color:#d4e0e8}
+.la-debrief{position:fixed;left:50%;bottom:24px;transform:translateX(-50%);z-index:120;width:min(1100px,94vw);background:#0d1520f5;border:2px solid #43d6a6;border-radius:18px;padding:18px 24px;box-shadow:0 30px 90px #000b}
+.la-debrief h3{margin:0 0 10px;color:#a6f3d2;font-size:1.3rem}
+.la-debrief ol{margin:0;padding-left:1.2rem;display:flex;flex-direction:column;gap:8px}
+.la-debrief li{line-height:1.45}.la-debrief li strong{color:#fff}.la-debrief li span{color:#c3d3dd;font-size:.92rem}
+.la-debrief .la-best{color:#a6f3d2;font-weight:800}
 
 /* ===== Defend It · incident operations (scoped .dt-*) ===== */
 .dt-shell{--zone:#ffb083}
@@ -222,11 +307,11 @@ a.ol-btn{text-decoration:none}
     <button class="ol-tab" role="tab" data-tab="a" aria-selected="true"><span>01</span><span>Town investigation<small>Workstation A · Intelligence</small></span><span class="ol-you" data-for="A" hidden>YOU</span><b id="dt-tab-a">open</b></button>
     <button class="ol-tab" role="tab" data-tab="b" aria-selected="false"><span>02</span><span>Office response<small>Workstation B · Response</small></span><span class="ol-you" data-for="B" hidden>YOU</span><b id="dt-tab-b">open</b></button>
     <button class="ol-tab" role="tab" data-tab="joint" aria-selected="false"><span>03</span><span>Incident review<small>Both workstations</small></span><b id="dt-tab-joint">open</b></button>
-    <button class="ol-tab" role="tab" data-tab="bonus" aria-selected="false"><span>+</span><span>Backup failure<small>Optional · fast teams</small></span><b id="dt-tab-bonus">optional</b></button>
+    <button class="ol-tab" role="tab" data-tab="bonus" aria-selected="false" hidden><span>+</span><span>Backup failure<small>Optional · fast teams</small></span><b id="dt-tab-bonus">optional</b></button>
   </div>
 
   <section data-panel="a" role="tabpanel" aria-label="Workstation A: Incident Intelligence">
-    <div class="ol-step"><span>INVESTIGATE</span><strong>Explore the area around HQ</strong><small>Each action takes time · clock <b id="dt-a-clock" class="tl-mono">08:47</b></small></div>
+    <div class="ol-step"><span>STEP 1</span><strong>Investigate the town</strong><small>Click each marker on the map — seven places, including the café and the bus stop — and try every action. Each one takes a few minutes of the clock and adds evidence to your board.</small></div>
     <div class="dt-mapgrid">
       <div class="dt-mapwrap"><svg class="dt-map" viewBox="0 0 900 510" role="img" aria-label="Interactive town map showing an office, damaged utility box, parking and reception entrance" xmlns="http://www.w3.org/2000/svg">
             <defs><pattern id="road-dashes" width="55" height="4" patternUnits="userSpaceOnUse"><rect width="28" height="3" rx="1" fill="#819ca7" opacity=".55"/></pattern><pattern id="office-grid" width="33" height="29" patternUnits="userSpaceOnUse"><rect x="8" y="7" width="17" height="10" rx="2" fill="#478b9b" opacity=".33"/></pattern></defs>
@@ -247,20 +332,20 @@ a.ol-btn{text-decoration:none}
             <g class="dt-hot" tabindex="0" role="button" aria-label="Inspect vehicle collision and surrounding road" data-site="collision"><rect x="178" y="360" width="60" height="26" rx="10" fill="#b76f61" stroke="#e7a493" stroke-width="2"/><rect x="191" y="355" width="29" height="8" rx="4" fill="#243943"/><path d="M242 368l11 -10 14 15" stroke="#f4be94" fill="none" stroke-width="2"/><text x="208" y="405" text-anchor="middle" fill="#f4d3b9" font-size="10">VEHICLE COLLISION</text></g>
             <g class="dt-hot" tabindex="0" role="button" aria-label="Inspect office building" data-site="office"><rect x="277" y="258" width="126" height="39" rx="5" fill="#0d2935" stroke="#5ed9cb" stroke-width="1.5"/><text x="340" y="274" fill="#a4fff0" text-anchor="middle" font-size="11" font-weight="900">HQ RECEPTION</text><text x="340" y="287" fill="#75c8ce" text-anchor="middle" font-size="9">RADIO LINK</text></g>
             <g fill="#82a3ad" font-family="monospace" font-size="9" letter-spacing="2"><text x="24" y="88">NORTH STREET</text><text x="24" y="365">RIVERSIDE ROAD</text><text transform="translate(710,182) rotate(90)">CENTRAL AVENUE</text><text x="20" y="22">SECTOR 04  /  LIVE MAP</text></g>
-          </svg><div class="dt-map-tip">● Click or Tab to a marker and press Enter</div></div>
+          <g class="dt-hot" data-site="cafe" tabindex="0" role="button" aria-label="Harbour Café: Wi-Fi anomaly"><rect x="747" y="158" width="132" height="84" rx="10" fill="#14313d" stroke="#ffb083" stroke-width="2"/><text x="813" y="190" text-anchor="middle" fill="#ffe1cf" font-size="15" font-weight="800" font-family="Inter,Arial,sans-serif">HARBOUR CAFÉ</text><text x="813" y="212" text-anchor="middle" fill="#ffb083" font-size="11" font-weight="700" font-family="Inter,Arial,sans-serif">((·)) WI-FI ANOMALY</text></g><g class="dt-hot" data-site="busstop" tabindex="0" role="button" aria-label="Bus stop: lost property"><rect x="758" y="440" width="116" height="46" rx="9" fill="#14313d" stroke="#ffb083" stroke-width="2"/><text x="816" y="459" text-anchor="middle" fill="#ffe1cf" font-size="13" font-weight="800" font-family="Inter,Arial,sans-serif">BUS STOP</text><text x="816" y="477" text-anchor="middle" fill="#ffb083" font-size="10" font-weight="700" font-family="Inter,Arial,sans-serif">LOST PROPERTY</text></g></svg><div class="dt-map-tip">● Click or Tab to a marker and press Enter</div></div>
       <aside class="ol-panel dt-sitepanel" aria-live="polite"><div id="dt-site"></div><p id="dt-a-alert" class="dt-escalate" role="status"></p></aside>
     </div>
-    <div class="ol-two" style="margin-top:14px">
+    <div class="ol-step"><span>STEP 2</span><strong>Brief the response team</strong><small>Look over your evidence board, then read your key findings and intel code to Workstation B — some of them unlock faster options inside the building.</small></div><div class="ol-two" style="margin-top:14px">
       <div class="ol-panel"><span class="ol-kicker">EVIDENCE BOARD · <span id="dt-a-count">0/9</span></span><h3>What you know</h3><ol id="dt-board" class="dt-board"></ol><div id="dt-hints-a"></div></div>
       <div id="dt-intel"></div>
     </div>
-    <div class="ol-step"><span>REPORT</span><strong>Write the incident reports</strong><small>Checked by the duty manager</small></div>
+    <div class="ol-step"><span>STEP 3</span><strong>Write the incident reports</strong><small>Fill in all four reports using your evidence. The duty manager sends back anything vague — fix it and file again.</small></div>
     <div id="dt-reports" class="ol-grid2"></div>
-    <div class="ol-checkpoint" id="dt-check-a"></div>
+    <div class="ol-step"><span>STEP 4</span><strong>Sign off</strong><small>Answer Mission Control’s questions. Once you pass, your answers are locked in.</small></div><div class="ol-checkpoint" id="dt-check-a"></div>
   </section>
 
   <section data-panel="b" role="tabpanel" aria-label="Workstation B: Incident Response" hidden>
-    <div class="ol-step"><span>RESPOND</span><strong>Run the office through the incident</strong><small>Every action costs time · clock <b id="dt-b-clock" class="tl-mono">08:47</b></small></div>
+    <div class="ol-step"><span>STEP 1</span><strong>Run the office</strong><small>Click a room, read the alert and choose an action. Every action costs time and can’t be undone — think first. Keep all three meters up and tick off all six objectives.</small></div>
     <div class="dt-meters">
       <div><small>STAFF SAFETY</small><strong id="dt-m-safety">—</strong><div class="ol-meter" id="dt-mb-safety"><i></i></div></div>
       <div><small>SYSTEM SECURITY</small><strong id="dt-m-security">—</strong><div class="ol-meter" id="dt-mb-security"><i></i></div></div>
@@ -275,38 +360,39 @@ a.ol-btn{text-decoration:none}
       <aside class="ol-panel dt-roompanel" aria-live="polite"><div id="dt-room"></div></aside>
     </div>
     <div class="ol-two" style="margin-top:14px">
-      <div class="ol-panel"><span class="ol-kicker">OBJECTIVES</span><ul id="dt-objectives" class="dt-objectives"></ul><p id="dt-b-verdict" class="ol-banner"></p><button type="button" id="dt-restart" class="ol-btn ol-btn-quiet">Restart office simulation</button><div id="dt-hints-b"></div></div>
+      <div class="ol-panel"><span class="ol-kicker">OBJECTIVES</span><ul id="dt-objectives" class="dt-objectives"></ul><p id="dt-b-verdict" class="ol-banner"></p><div id="dt-hints-b"></div></div>
       <div class="ol-panel"><span class="ol-kicker">INCIDENT LOG</span><div id="dt-log" class="ol-feed"></div></div>
     </div>
-    <div id="dt-response" style="margin-top:12px"></div>
-    <div class="ol-checkpoint" id="dt-check-b"></div>
+    <div class="ol-step"><span>STEP 2</span><strong>Hand off</strong><small>Read your response summary and code to Workstation A.</small></div><div id="dt-response" style="margin-top:12px"></div>
+    <div class="ol-step"><span>STEP 3</span><strong>Sign off</strong><small>Answer Mission Control’s questions. Once you pass, your answers are locked in.</small></div><div class="ol-checkpoint" id="dt-check-b"></div>
   </section>
 
   <section data-panel="joint" role="tabpanel" aria-label="Joint incident review" hidden>
-    <div class="ol-step"><span>JOINT · BOTH WORKSTATIONS</span><strong>Put the whole picture together</strong><small>Swap codes · find gaps · agree recovery order</small></div>
+    <div class="ol-step"><span>STEP 1</span><strong>Put the picture together</strong><small>Swap codes, read the combined timeline, and talk through every gap.</small></div>
     <div id="dt-joint-codes"></div>
     <div class="ol-two" style="margin-top:14px">
       <div class="ol-panel"><span class="ol-kicker">COMBINED TIMELINE</span><div id="dt-joint-timeline"></div></div>
       <div class="ol-panel"><span class="ol-kicker">GAPS TO DISCUSS</span><div id="dt-joint-gaps"></div></div>
     </div>
-    <div class="ol-panel" style="margin-top:14px"><span class="ol-kicker">SAFE RECOVERY ORDER</span><h3>Agree the order together</h3>
+    <div class="ol-step"><span>STEP 2</span><strong>Agree the recovery order</strong><small>Click the five steps in the order you agree on. Once all five are placed, the order is locked.</small></div><div class="ol-panel" style="margin-top:14px"><span class="ol-kicker">SAFE RECOVERY ORDER</span><h3>Agree the order together</h3>
       <div id="dt-order-pick" class="dt-orderpick"></div><ol id="dt-order-list" class="dt-orderlist"></ol>
       <p id="dt-order-fb" class="ol-check-feedback" role="status"></p><button type="button" id="dt-order-reset" class="ol-btn ol-btn-quiet">Reset order</button></div>
-    <div class="ol-checkpoint" id="dt-check-joint"></div>
+    <div class="ol-step"><span>STEP 3</span><strong>Final sign-off</strong><small>Agree every answer, send it, and collect your recovery key.</small></div><div class="ol-checkpoint" id="dt-check-joint"></div>
     <div class="ol-key" id="dt-key"><div class="ol-key-glyph" id="dt-key-glyph" aria-hidden="true">◇</div><div><small>RECOVERY KEY</small><strong>THREAT CONTAINED</strong><small id="dt-key-sub">Unlocks when the server confirms A, B and joint sign-offs.</small></div></div>
   </section>
 
   <section data-panel="bonus" role="tabpanel" aria-label="Bonus: backup failure" hidden>
-    <div class="ol-step"><span>OPTIONAL · FAST TEAMS</span><strong>10:24 — the backup failed its restore test</strong><small>A secondary incident, three decisions</small></div>
+    <div class="ol-step"><span>STEP 1</span><strong>The backup failed</strong><small>Three decisions, each one final. Your choices change what happens next.</small></div>
     <div class="ol-panel dt-bonusbrief"><p>With power back, IT tries to restore the file server from last night's backup. The restore test fails. Staff are asking when they'll get their files back.</p></div>
     <div id="dt-bonus"></div>
-    <div class="ol-checkpoint" id="dt-check-bonus"></div>
+    <div class="ol-step"><span>STEP 2</span><strong>Bonus sign-off</strong><small>Record your escalation decision.</small></div><div class="ol-checkpoint" id="dt-check-bonus"></div>
   </section>
   </div>
-  <p class="tl-footnote"><span class="ol-sim-tag">THIS COMPUTER ONLY</span> Evidence, reports and the office simulation are saved in this browser tab. Only Mission Control sign-offs change your group's official score. <button type="button" id="dt-reset-sim" class="ol-btn ol-btn-quiet">Reset simulation on this computer</button></p>
+  <p class="tl-footnote"><span class="ol-sim-tag">THIS COMPUTER ONLY</span> Evidence, reports and the office simulation are saved in this browser tab. Only Mission Control sign-offs change your group's official score. <button type="button" id="dt-reset-sim" class="ol-btn ol-btn-quiet">Staff: reset this computer</button></p>
   <footer class="site-footer"><span>OPERATION LOCKDOWN 2.0</span><span>DEFEND IT · INCIDENT RESPONSE</span><span>ALL DATA IS FICTIONAL</span></footer>
 </main>
 <script src="/assets/js/ui.js" defer></script>
 <script type="module" src="/assets/js/defend.js"></script>
+<script type="module" src="/assets/js/live-attack.js"></script>
 </body>
 </html>

@@ -8,11 +8,11 @@
  * Everything else here is a local simulation saved on this computer only.
  */
 import {STORY, $, el, fill, text, wait, toast, localStore, encodeCode, decodeCode, codeInput, codeDisplay,
-  hintPanel, createZone, checkpoint, describeError, notLoggedIn, bindConnectionErrors} from './mission-core.js';
+  hintPanel, createZone, checkpoint, describeError, notLoggedIn, bindConnectionErrors, applyRoleTabs, applyBonus, stepify, BONUS_MIN_MINUTES_LEFT} from './mission-core.js';
 
 const zone = createZone({zone:'train', tasks:{a:'train-labels', b:'train-rules', joint:'train-joint', bonus:'train-bonus'}});
 const store = localStore('train');
-const CODES = {analyst:{type:'TA', label:'analyst handoff', chars:4}, detector:{type:'TD', label:'detector release', chars:5}};
+const CODES = {analyst:{type:'TA', label:'analyst handoff', chars:6}, detector:{type:'TD', label:'detector release', chars:5}};
 const OTHER = Object.values(CODES);
 
 /* ======================================================================
@@ -65,6 +65,29 @@ const EVENTS = [
     notes:['HR system: a.fraser is on annual leave 18–29 Nov.', 'Session exported 48,000 customer records.'], sig:{f:0},
     truth:'review', ok:['review', 'suspicious'], why:'Nothing about the login itself looks wrong — the password, place and laptop are normal. The risk is what happened next, while they were meant to be on leave. Rules about login signals alone will not see it.'},
 ];
+/* Second wave: arrives after the first review. Trickier, and linked to the other zones' story. */
+EVENTS.push(
+  {id:'E-211', wave:2, account:'svc-backup', role:'Service account (not a person)', time:'03:00', where:'Bristol server room', usual:'Bristol server room, 03:00 every night', device:'Backup server NS-SRV-07', fails:0, last:'Yesterday 03:00', mfa:'Not used — automated account',
+    notes:['Same time, same server, every night for two years.', 'Runs the nightly backup job.'], sig:{f:0, hour:1},
+    truth:'normal', ok:['normal'], why:'Night-time is normal for an automated job that runs at 03:00 every night. “Unusual” always means unusual for THIS account.'},
+  {id:'E-212', wave:2, account:'svc-backup', role:'Service account (not a person)', time:'14:20', where:'Bristol office — Finance floor', usual:'Bristol server room only', device:'Staff laptop FIN-07', fails:0, last:'Today 03:00 (server room)', mfa:'Not used — automated account',
+    notes:['Service accounts are only ever used by servers, never typed in on a staff laptop.', 'FIN-07 is the Finance PC that has been showing strange pop-ups this morning.'], sig:{f:0, device:1},
+    truth:'suspicious', ok:['suspicious'], why:'A robot account suddenly used from a person’s laptop — the same laptop with malware warnings — strongly suggests the attacker found its password on that PC.'},
+  {id:'E-213', wave:2, account:'h.ali', role:'Sales Executive', time:'10:05', where:'Lagos, Nigeria', usual:'Bristol office', device:'Known laptop NS-LT-0350', fails:0, last:'Friday 17:10 (Bristol)', mfa:'Approved first time',
+    notes:['No approved travel in the HR system.', 'BUT the shared sales calendar says “Client visit — Lagos, Mon–Wed”.'], sig:{f:0, geo:1},
+    truth:'review', ok:['review'], why:'A calendar entry is a clue, not proof — anyone can write in a calendar. Contact the employee through a trusted channel before deciding either way.'},
+  {id:'E-214', wave:2, account:'k.ross', role:'Customer Services (account from E-206)', time:'11:31', where:'Netherlands — hosting provider', usual:'Bristol office', device:'Unknown', fails:0, last:'Today 11:14 (same Netherlands address)', mfa:'MFA phone number CHANGED to a new number',
+    notes:['Same source address as the password spray in E-206.', 'The first thing the session did was change the MFA phone number.'], sig:{f:0, geo:1, device:1},
+    truth:'suspicious', ok:['suspicious'], why:'Changing the MFA phone locks the real owner out and keeps the attacker in. Attackers do this right after they get in — it’s a classic “persistence” move.'},
+  {id:'E-215', wave:2, account:'d.moss', role:'Facilities Coordinator', time:'08:57', where:'Bristol office — reception kiosk PC', usual:'Bristol office', device:'Shared reception PC', fails:0, last:'Last Friday', mfa:'Approved first time',
+    notes:['HR: d.moss is on holiday until Monday.', 'Door system: her badge opened the side door at 08:52 — five minutes earlier.'], sig:{f:0},
+    truth:'suspicious', ok:['suspicious', 'review'], why:'Someone is using the identity of a person who is on holiday — first her badge, now her login, from inside the building. The detector sees nothing odd; the context makes it serious.'},
+  {id:'E-216', wave:2, account:'p.wright', role:'Finance Manager', time:'17:45', where:'Bristol (home internet)', usual:'Bristol office / home', device:'Known laptop NS-LT-0204', fails:2, last:'Today 08:31', mfa:'Approved first time',
+    notes:['Logs in from home most evenings to approve payments.'], sig:{f:2},
+    truth:'normal', ok:['normal'], why:'Matches this person’s normal routine. Two typos is ordinary.'},
+);
+const visibleEvents = () => EVENTS.filter(e => e.wave !== 2 || sim.reviews >= 1);
+const wave2Live = () => sim.reviews >= 1;
 const LABELS = {normal:'Normal', suspicious:'Suspicious', review:'Needs verification'};
 const LABEL_KEYS = ['normal', 'suspicious', 'review'];
 
@@ -95,8 +118,23 @@ const BONUS_CASES = [
   {id:'X2', attack:0, name:'NEW: approved trade fair in Germany, hired laptop', f:0, geo:1, device:1, approved:1, bonus:1,
     story:'The sales director is at a trade fair in Cologne with approved travel. Her laptop broke, so she is using a hired one. Blocking her would cost the company a major contract meeting.'},
 ];
+/* Night profile: overnight history where night-time logins are NORMAL and handheld scanners count as new devices. */
+const NIGHT_SUITE = [
+  {id:'N1', attack:1, name:'Credential stuffing from abroad at 02:10', f:12, geo:1, hour:1},
+  {id:'N2', attack:1, name:'MFA fatigue on a night supervisor', f:0, device:1, hour:1, mfa:1},
+  {id:'N3', attack:1, name:'Password spray across the night shift', f:1, hour:1, spray:1},
+  {id:'N4', attack:1, name:'Stolen session used from abroad', f:0, geo:1, device:1, hour:1},
+  {id:'N5', attack:1, name:'Guessing a warehouse account at 04:00', f:6, hour:1},
+  {id:'M1', attack:0, name:'Warehouse picker starting the night shift', f:0, hour:1},
+  {id:'M2', attack:0, name:'Night picker on a new handheld scanner', f:0, device:1, hour:1},
+  {id:'M3', attack:0, name:'Agency worker’s first night: new scanner, one typo', f:1, device:1, hour:1},
+  {id:'M4', attack:0, name:'Night supervisor mistypes three times', f:3, hour:1},
+  {id:'M5', attack:0, name:'IT patching with a change ticket', f:0, hour:1, ticket:1},
+  {id:'M6', attack:0, name:'Driver on an approved overnight run to Calais', f:0, geo:1, hour:1, approved:1},
+  {id:'M7', attack:0, name:'Driver’s phone hops between masts at the ferry port', f:0, device:1, hour:1, travel:1, approved:1},
+];
 const START_CONFIG = {th:10, w:{fails:2, geo:2, device:0, hour:2, travel:0, mfa:0, spray:0}, alert:2, ctx:false};
-const REQUIRE = {base:{caught:6, of:7, maxFalse:1}, bonus:{caught:7, of:8, maxFalse:1}};
+const REQUIRE = {base:{caught:6, of:7, maxFalse:1}, bonus:{caught:7, of:8, maxFalse:1}, night:{caught:4, of:5, maxFalse:0}};
 
 function riskScore(e, c) {
   const parts = [];
@@ -111,15 +149,16 @@ function riskScore(e, c) {
   const score = parts.reduce((s, p) => s + p.w, 0);
   return {score, alert: score >= c.alert, parts};
 }
-function evaluate(c, includeBonus) {
-  const cases = includeBonus ? [...SUITE, ...BONUS_CASES] : SUITE;
+function evaluate(c, includeBonus, profile = 'day') {
+  const night = profile === 'night';
+  const cases = night ? NIGHT_SUITE : includeBonus ? [...SUITE, ...BONUS_CASES] : SUITE;
   const rows = cases.map(e => { const r = riskScore(e, c); return {e, ...r, outcome: e.attack ? (r.alert ? 'TP' : 'FN') : (r.alert ? 'FP' : 'TN')}; });
   const count = k => rows.filter(r => r.outcome === k).length;
   const m = {TP:count('TP'), FN:count('FN'), FP:count('FP'), TN:count('TN')};
   const attacks = m.TP + m.FN, legit = m.FP + m.TN;
-  const req = includeBonus ? REQUIRE.bonus : REQUIRE.base;
+  const req = night ? REQUIRE.night : includeBonus ? REQUIRE.bonus : REQUIRE.base;
   const detection = attacks ? m.TP / attacks : 0, specificity = legit ? m.TN / legit : 0;
-  return {rows, m, attacks, legit, req, includeBonus,
+  return {rows, m, attacks, legit, req, includeBonus:!night && includeBonus, night,
     quality: Math.round(50 * (detection + specificity)), // balanced accuracy
     meets: m.TP >= req.caught && m.FP <= req.maxFalse};
 }
@@ -153,9 +192,10 @@ const eventAsCase = e => ({...e.sig, f:e.sig.f || 0});
  * ==================================================================== */
 const sim = {
   opened:new Set(), labels:{}, signalsUseful:new Set(), reviews:0, lastReview:null, debrief:false, selected:'E-201',
-  config:structuredClone(START_CONFIG), runs:[], bestMet:false, bonusMet:false, includeBonus:false,
+  config:structuredClone(START_CONFIG), nightConfig:structuredClone(START_CONFIG), profile:'day', nightMet:false, runs:[], bestMet:false, bonusMet:false, includeBonus:false,
   partnerAnalyst:null, partnerDetector:null, checklist:new Set(), release:null,
 };
+const activeCfg = () => sim.profile === 'night' ? sim.nightConfig : sim.config;
 function save() {
   store.set('sim', {...sim, opened:[...sim.opened], signalsUseful:[...sim.signalsUseful], checklist:[...sim.checklist]});
 }
@@ -168,7 +208,7 @@ function restore() {
  * Page chrome
  * ==================================================================== */
 let activeTab = 'a';
-function banner(message, kind = 'info') { const b = $('tl-banner'); b.textContent = message; b.dataset.kind = kind; }
+function banner(message, kind = 'info') { const b = $('tl-banner'); b.hidden = false; b.textContent = message; b.dataset.kind = kind; }
 function selectTab(tab) {
   activeTab = tab;
   document.querySelectorAll('[data-tab]').forEach(b => b.setAttribute('aria-selected', String(b.dataset.tab === tab)));
@@ -211,7 +251,7 @@ function renderTimeline() {
   add('text', {x:x('00:00') + 6, y:10, fill:'#7f95c8', 'font-size':9, 'font-family':'monospace'}, 'NIGHT 00:00–05:59');
   add('line', {x1:24, x2:W - 24, y1:64, y2:64, stroke:'#2a4459', 'stroke-width':1});
   for (let h = 0; h <= 24; h += 3) { const xx = 24 + (h / 24) * (W - 48); add('line', {x1:xx, x2:xx, y1:62, y2:67, stroke:'#4b6a80'}); add('text', {x:xx, y:82, fill:'#7c97ab', 'font-size':10, 'text-anchor':'middle', 'font-family':'monospace'}, String(h).padStart(2, '0') + ':00'); }
-  EVENTS.forEach((e, i) => {
+  visibleEvents().forEach((e, i) => {
     const lab = sim.labels[e.id];
     const colour = lab === 'suspicious' ? '#ff8a99' : lab === 'review' ? '#f4c86d' : lab === 'normal' ? '#5fe3b0' : '#7aa7c2';
     const cy = 52 - (i % 3) * 12;
@@ -237,7 +277,7 @@ function flagChips(e) {
   return chips;
 }
 function renderEventTable() {
-  const rows = EVENTS.map(e => {
+  const rows = visibleEvents().map(e => {
     const lab = sim.labels[e.id];
     return el('tr', {class: `${sim.selected === e.id ? 'is-selected' : ''} ${sim.opened.has(e.id) ? 'is-opened' : ''}`, tabindex:'0', 'aria-selected': String(sim.selected === e.id),
         onclick:() => openEvent(e.id), onkeydown:ev => { if (ev.key === 'Enter' || ev.key === ' ') { ev.preventDefault(); openEvent(e.id); } }},
@@ -248,11 +288,14 @@ function renderEventTable() {
   });
   fill('tl-events', rows);
   const done = Object.keys(sim.labels).length;
-  text('tl-a-opened', `${sim.opened.size}/10`);
-  text('tl-a-classified', `${done}/10`);
+  const vis = visibleEvents(), total = vis.length;
+  const doneVis = vis.filter(e => sim.labels[e.id]).length;
+  text('tl-a-opened', `${vis.filter(e => sim.opened.has(e.id)).length}/${total}`);
+  text('tl-a-classified', `${doneVis}/${total}`);
   text('tl-a-reviews', String(sim.reviews));
-  $('tl-a-review').disabled = done < EVENTS.length;
-  text('tl-a-review-hint', done < EVENTS.length ? `Classify all 10 events to request a review (${10 - done} left).` : 'Ready: ask the security lead to review your classifications.');
+  $('tl-a-review').disabled = doneVis < total;
+  text('tl-a-review-hint', doneVis < total ? `Classify all ${total} events to request a review (${total - doneVis} left).` : 'Ready: ask the security lead to review your classifications.');
+  const w2 = $('tl-wave2'); if (w2) w2.hidden = !wave2Live() || vis.every(e => sim.labels[e.id]);
 }
 function openEvent(id) {
   sim.selected = id; sim.opened.add(id); save();
@@ -277,7 +320,8 @@ function classify(id, label) {
   sim.labels[id] = label; save();
   openEvent(id);
   const next = EVENTS.find(e => !sim.labels[e.id]);
-  if (next && Object.keys(sim.labels).length < EVENTS.length) text('tl-a-next', `Next unclassified: ${next.id}`); else text('tl-a-next', '');
+  const nextVis = visibleEvents().find(e => !sim.labels[e.id]);
+  if (nextVis) text('tl-a-next', `Next unclassified: ${nextVis.id}`); else text('tl-a-next', '');
 }
 function judge(e, label) {
   if (e.ok.includes(label)) return null;
@@ -298,12 +342,17 @@ const NUDGE = {
   'E-208':'Could a VPN explain it? Do you actually know?',
   'E-210':'The login looks normal — but is the person meant to be working at all?',
   'E-201':'Compare it with the “normal for this user” column.', 'E-205':'Is two typos the day after a password change unusual?',
+  'E-211':'Is 03:00 unusual for THIS account?', 'E-212':'Who — or what — normally uses this account, and from where? Which laptop is this?',
+  'E-213':'Is a calendar entry the same as approved travel? How would you check?', 'E-214':'What was the first thing this session did, and why would an attacker do that?',
+  'E-215':'Where is d.moss today? What else happened with her identity this morning?', 'E-216':'Is this person’s evening login part of their normal routine?',
 };
 function requestReview() {
+  const firstReview = sim.reviews === 0;
   sim.reviews++;
-  const issues = EVENTS.map(e => ({e, j:judge(e, sim.labels[e.id])})).filter(x => x.j);
+  const issues = visibleEvents().map(e => ({e, j:judge(e, sim.labels[e.id])})).filter(x => x.j);
   sim.lastReview = issues.map(x => ({id:x.e.id, sev:x.j.sev}));
-  if (sim.reviews >= 2 || issues.length === 0) sim.debrief = true;
+  if (!firstReview && (sim.reviews >= 3 || issues.length === 0)) sim.debrief = true;
+  if (firstReview) { sim.debrief = false; }
   save();
   const serious = issues.filter(x => x.j.sev === 'serious').length, moderate = issues.filter(x => x.j.sev === 'moderate').length;
   const head = issues.length === 0 ? 'Security lead: “Excellent triage. Every call is defensible.”'
@@ -314,7 +363,8 @@ function requestReview() {
       el('p', {}, `Review ${sim.reviews}: ${serious} serious · ${moderate} moderate · ${issues.length - serious - moderate} minor.`)),
     issues.map(({e, j}) => el('button', {type:'button', class:`tl-issue tl-issue-${j.sev}`, onclick:() => openEvent(e.id)},
       el('span', {class:'tl-mono'}, e.id), el('span', {}, el('b', {}, j.sev.toUpperCase() + ' · '), j.what, el('em', {}, ' Ask yourselves: ' + NUDGE[e.id])))),
-    sim.debrief ? el('p', {class:'ol-muted'}, 'The full debrief is now unlocked — open any event to read the reasoning.') : el('p', {class:'ol-muted'}, 'Reconsider the flagged events, then request a second review. The debrief unlocks after review 2.'));
+    firstReview ? el('div', {class:'tl-review warn'}, el('strong', {}, '08:58 — SECOND WAVE: 6 new events just arrived.'), el('p', {}, 'They’re at the bottom of the table (E-211 to E-216), and they’re trickier. Fix the flagged events above, classify the new ones, then request another review.')) : null,
+    sim.debrief ? el('p', {class:'ol-muted'}, 'The full debrief is now unlocked — open any event to read the reasoning.') : el('p', {class:'ol-muted'}, 'Reconsider the flagged events, then request another review. The debrief unlocks after a clean review or review 3.'));
   renderEventTable(); renderFindings(); refreshCheckpoints();
   if (sim.selected) openEvent(sim.selected);
 }
@@ -326,7 +376,8 @@ function renderSignalNotebook() {
 function renderFindings() {
   const box = $('tl-findings');
   if (!sim.reviews) { fill(box, el('p', {class:'ol-muted'}, 'Your findings summary and handoff code appear after your first review.')); return; }
-  const by = k => EVENTS.filter(e => sim.labels[e.id] === k).map(e => e.id);
+  if (sim.reviews < 2) { fill(box, el('p', {class:'ol-muted'}, 'A second wave of events has arrived. Classify them and get another review before you hand off.')); return; }
+  const by = k => visibleEvents().filter(e => sim.labels[e.id] === k).map(e => e.id);
   const code = encodeCode(CODES.analyst.type, labelsToInt(sim.labels), CODES.analyst.chars);
   const useful = [...sim.signalsUseful].map(signalName);
   fill(box,
@@ -338,38 +389,89 @@ function renderFindings() {
       el('p', {}, el('b', {}, 'Signals we found useful: '), useful.join(', ') || 'none ticked yet — use the signal notebook'),
       el('p', {}, el('b', {}, 'Watch out for: '), 'travel with HR approval, night work with a change ticket, and attacks that never produce failed passwords.'),
       codeDisplay(code, 'ANALYST HANDOFF CODE — B types this into “Analyst cases”'),
-      el('p', {class:'ol-muted'}, 'The code holds your 10 classifications. It stays on these two computers; nothing is sent to the server.')));
+      el('p', {class:'ol-muted'}, `The code holds your ${EVENTS.length} classifications. It stays on these two computers; nothing is sent to the server.`)));
 }
 
 /* ======================================================================
  * B — Detection engineering console
  * ==================================================================== */
+/* Plain-English help for each rule. */
+const RULE_HELP = {
+  fails:'Someone typed the wrong password many times for one account — maybe guessing.',
+  geo:'The login came from a country this person doesn’t normally log in from.',
+  device:'The login came from a laptop or phone the company hasn’t seen this person use before.',
+  hour:'The login happened at night, between midnight and 6am.',
+  travel:'Two logins from places too far apart to travel between in the time.',
+  mfa:'The person’s phone was sent lots of “Is this you?” approval requests in a row.',
+  spray:'One computer tried passwords on lots of different staff accounts.',
+};
+const POINTS = ['Off', '+1', '+2', '+3'];
 function weightControl(id) {
-  const value = sim.config.w[id];
-  return el('div', {class:'tl-weight', role:'group', 'aria-label':`Weight for ${signalName(id)}`},
-    ['Off', '+1', '+2', '+3'].map((lab, i) => el('button', {type:'button', class:'tl-wbtn', 'aria-pressed': String(value === i),
-      onclick:() => { sim.config.w[id] = i; configChanged(); }}, lab)));
+  const value = activeCfg().w[id];
+  return el('div', {class:'tl-wgroup'},
+    el('span', {class:'tl-wlabel'}, 'Points added to the risk score:'),
+    el('div', {class:'tl-weight', role:'group', 'aria-label':`Points added to the risk score for ${signalName(id)}`},
+      POINTS.map((lab, i) => el('button', {type:'button', class:'tl-wbtn', 'aria-pressed': String(value === i),
+        title:i ? `Add ${i} point${i > 1 ? 's' : ''} when this happens` : 'Ignore this signal completely',
+        onclick:() => { activeCfg().w[id] = i; configChanged(); }}, lab))),
+    el('p', {class:'tl-cap', id:`tl-cap-${id}`}));
 }
+function captionFor(id) {
+  const c = activeCfg(), w = c.w[id];
+  if (!w) return {kind:'off', text:'Off — the detector ignores this completely.'};
+  const alone = w >= c.alert;
+  return {kind:alone ? 'alone' : 'combo', text:`Adds ${w} point${w > 1 ? 's' : ''}. ${alone
+    ? `That alone reaches your alert level (${c.alert}), so this signal on its own will raise an alert.`
+    : `Your alert level is ${c.alert}, so this needs ${c.alert - w} more point${c.alert - w > 1 ? 's' : ''} from other signals before it raises an alert.`}`};
+}
+const EXAMPLES = [
+  {label:'A login at 03:00 from a new laptop', e:{f:0, hour:1, device:1}},
+  {label:'Someone on approved travel in Spain', e:{f:0, geo:1, approved:1}},
+  {label:'4 wrong passwords, then success', e:{f:4}},
+];
+function updateCaptions() {
+  for (const s of SIGNALS) { const cap = $(`tl-cap-${s.id}`); if (!cap) continue; const r = captionFor(s.id); cap.textContent = r.text; cap.dataset.kind = r.kind; }
+  const box = $('tl-examples'); if (!box) return;
+  fill(box, EXAMPLES.map(x => { const r = riskScore(x.e, activeCfg());
+    return el('li', {class:r.alert ? 'is-alert' : ''}, el('span', {}, x.label),
+      el('span', {class:'tl-ex-sum'}, r.parts.length ? r.parts.map(p => `${signalName(p.id)} ${p.w ? '+' + p.w : '(ignored)'}`).join(' · ') : 'no points'),
+      el('b', {}, `${r.score} pt${r.score === 1 ? '' : 's'} → ${r.alert ? 'ALERT' : 'allowed'}`)); }));
+}
+function renderProfiles() {
+  const box = $('tl-profiles'); if (!box) return;
+  const btn = (id, icon, title, sub, met) => el('button', {type:'button', class:`tl-profile ${sim.profile === id ? 'is-on' : ''}`, 'aria-pressed':String(sim.profile === id),
+    onclick:() => { sim.profile = id; save(); renderRules(); renderProfiles(); $('tl-eval-stale').hidden = !sim.runs.length; text('tl-run-status', profileBlurb()); }},
+    el('span', {class:'tl-profile-icon'}, icon), el('span', {}, el('b', {}, title), el('small', {}, sub)), el('span', {class:`ol-chip ${met ? 'good' : ''}`}, met ? '✓ requirements met' : 'not met yet'));
+  fill(box, btn('day', '☀', 'Day profile', 'Office hours · catch 6 of 7 · max 1 false alarm', sim.bestMet),
+    btn('night', '☾', 'Night profile', 'Skeleton crew · catch 4 of 5 · ZERO false alarms', sim.nightMet));
+}
+const profileBlurb = () => sim.profile === 'night' ? '12 labelled overnight logins · 5 attacks · 7 legitimate night workers' : '16 labelled historical logins · 7 attacks · 9 legitimate';
 function renderRules() {
-  const c = sim.config;
+  const c = activeCfg();
   fill('tl-rules',
+    el('div', {class:'tl-explain'},
+      el('strong', {}, 'How the detector decides'),
+      el('ol', {}, el('li', {}, 'Each warning sign that a login has adds some points.'), el('li', {}, 'The points are added up into a risk score.'), el('li', {}, 'If the score reaches your alert level, the security team is alerted.')),
+      el('p', {}, 'More points = the detector cares more about that sign. “Off” = ignore it. Try it out — these examples update as you change the rules:'),
+      el('ul', {id:'tl-examples', class:'tl-examples'})),
+    el('div', {class:'tl-rule tl-rule-alert'},
+      el('div', {class:'tl-rule-name'}, el('b', {}, '🔔 Alert level'), el('small', {}, 'How many points a login needs before the security team gets an alert. Lower = more alerts (catches more, but more false alarms).')),
+      el('label', {class:'tl-slider'}, el('span', {}, 'Alert when the score is ', el('output', {id:'tl-al-out'}, `${c.alert} or more`)),
+        el('input', {type:'range', min:1, max:8, value:c.alert, 'aria-label':'Alert level', oninput:ev => { c.alert = Number(ev.target.value); text('tl-al-out', `${c.alert} or more`); configChanged(false); }}))),
     el('div', {class:'tl-rule'},
-      el('div', {class:'tl-rule-name'}, el('b', {}, '⨯ Repeated failed passwords'), el('small', {}, 'Counts as a signal when failures for one account reach the threshold.')),
-      el('label', {class:'tl-slider'}, el('span', {}, 'Threshold: ', el('output', {id:'tl-th-out'}, `${c.th}+ failures`)),
-        el('input', {type:'range', min:1, max:15, value:c.th, 'aria-label':'Failed password threshold', oninput:ev => { c.th = Number(ev.target.value); text('tl-th-out', `${c.th}+ failures`); configChanged(false); }})),
+      el('div', {class:'tl-rule-name'}, el('b', {}, '⨯ Repeated failed passwords'), el('small', {}, RULE_HELP.fails)),
+      el('label', {class:'tl-slider'}, el('span', {}, 'Counts once there are ', el('output', {id:'tl-th-out'}, `${c.th} or more`), ' wrong passwords'),
+        el('input', {type:'range', min:1, max:15, value:c.th, 'aria-label':'How many wrong passwords count as a warning sign', oninput:ev => { c.th = Number(ev.target.value); text('tl-th-out', `${c.th} or more`); configChanged(false); }})),
       weightControl('fails')),
     SIGNALS.filter(s => s.id !== 'fails').map(s => el('div', {class:'tl-rule'},
-      el('div', {class:'tl-rule-name'}, el('b', {}, `${s.icon} ${s.name}`)), weightControl(s.id))),
-    el('div', {class:'tl-rule tl-rule-alert'},
-      el('div', {class:'tl-rule-name'}, el('b', {}, 'Raise an alert when the risk score reaches'), el('small', {}, 'Add up the weights of every signal present. At or above this number → alert.')),
-      el('label', {class:'tl-slider'}, el('span', {}, 'Alert at score ≥ ', el('output', {id:'tl-al-out'}, String(c.alert))),
-        el('input', {type:'range', min:1, max:8, value:c.alert, 'aria-label':'Alert threshold', oninput:ev => { c.alert = Number(ev.target.value); text('tl-al-out', String(c.alert)); configChanged(false); }}))),
+      el('div', {class:'tl-rule-name'}, el('b', {}, `${s.icon} ${s.name}`), el('small', {}, RULE_HELP[s.id])), weightControl(s.id))),
     el('label', {class:'tl-rule tl-ctx'}, el('input', {type:'checkbox', checked:c.ctx, onchange:ev => { c.ctx = ev.target.checked; configChanged(); }}),
-      el('span', {}, el('b', {}, 'Use business context'), el('small', {}, 'Ignore country/travel signals when HR has approved travel, and night-time when IT has a change ticket.'))));
+      el('span', {}, el('b', {}, 'Use business context'), el('small', {}, 'Don’t count “new country” or “impossible travel” if HR has approved the trip, and don’t count “night-time” if IT has booked the work.'))));
+  updateCaptions();
 }
 function configChanged(rerender = true) {
   save();
-  if (rerender) renderRules();
+  if (rerender) renderRules(); else updateCaptions();
   const stale = $('tl-eval-stale'); if (stale) stale.hidden = !sim.runs.length;
   renderAnalystCases();
 }
@@ -377,7 +479,7 @@ let running = false;
 async function runEvaluation() {
   if (running) return;
   running = true; $('tl-run').disabled = true;
-  const result = evaluate(sim.config, sim.includeBonus);
+  const result = evaluate(activeCfg(), sim.profile === 'day' && sim.includeBonus, sim.profile);
   const tbody = $('tl-results'); tbody.replaceChildren();
   $('tl-eval-stale').hidden = true;
   text('tl-run-status', `Evaluating ${result.rows.length} labelled logins…`);
@@ -385,10 +487,12 @@ async function runEvaluation() {
     tbody.append(resultRow(r));
     await wait(55);
   }
-  sim.runs.unshift({n:(sim.runs[0]?.n || 0) + 1, cfg:structuredClone(sim.config), m:result.m, q:result.quality, meets:result.meets, bonus:result.includeBonus});
+  sim.runs.unshift({n:(sim.runs[0]?.n || 0) + 1, cfg:structuredClone(activeCfg()), m:result.m, q:result.quality, meets:result.meets, bonus:result.includeBonus, night:result.night});
   sim.runs = sim.runs.slice(0, 8);
-  if (result.meets && !result.includeBonus) sim.bestMet = true;
+  if (result.meets && result.night) sim.nightMet = true;
+  else if (result.meets && !result.includeBonus) sim.bestMet = true;
   if (result.meets && result.includeBonus) sim.bonusMet = true;
+  renderProfiles();
   save();
   renderMetrics(result); renderHistory(); renderRelease(); refreshCheckpoints();
   text('tl-run-status', `Run ${sim.runs[0].n} complete.`);
@@ -399,7 +503,7 @@ function resultRow(r) {
   return el('tr', {class:`tl-out-${r.outcome}`},
     el('td', {class:'tl-mono'}, r.e.id), el('td', {}, r.e.name),
     el('td', {}, r.parts.length ? r.parts.map(p => el('span', {class:`ol-chip ${p.w ? '' : 'good'}`}, `${signalName(p.id)} ${p.w ? '+' + p.w : '0'}`)) : el('span', {class:'tl-dim'}, 'no signals')),
-    el('td', {class:'tl-mono'}, `${r.score} / ${sim.config.alert}`),
+    el('td', {class:'tl-mono'}, `${r.score} / ${activeCfg().alert}`),
     el('td', {}, r.e.attack ? 'Attack' : 'Legitimate'),
     el('td', {}, el('b', {class:'tl-outcome'}, label)));
 }
@@ -411,9 +515,9 @@ function renderMetrics(result) {
       el('div', {class:'tl-mx-h tl-mx-side'}, 'Real attack'), el('div', {class:'tl-mx tp'}, el('b', {}, m.TP), el('small', {}, 'correct detections')), el('div', {class:'tl-mx fn'}, el('b', {}, m.FN), el('small', {}, 'false negatives (missed)')),
       el('div', {class:'tl-mx-h tl-mx-side'}, 'Legitimate staff'), el('div', {class:'tl-mx fp'}, el('b', {}, m.FP), el('small', {}, 'false positives (false alarms)')), el('div', {class:'tl-mx tn'}, el('b', {}, m.TN), el('small', {}, 'correctly allowed'))),
     el('div', {class:'tl-reqs'},
-      el('span', {class:'ol-kicker'}, 'OPERATIONAL REQUIREMENTS · ' + (result.includeBonus ? 'WITH NEW INCIDENTS' : 'STANDARD SUITE')),
+      el('span', {class:'ol-kicker'}, 'OPERATIONAL REQUIREMENTS · ' + (result.night ? '☾ NIGHT PROFILE' : result.includeBonus ? 'DAY · WITH NEW INCIDENTS' : '☀ DAY PROFILE')),
       el('p', {class: m.TP >= req.caught ? 'ok' : 'no'}, `${m.TP >= req.caught ? '✓' : '✗'} Catch at least ${req.caught} of ${req.of} attacks — caught ${m.TP}`),
-      el('p', {class: m.FP <= req.maxFalse ? 'ok' : 'no'}, `${m.FP <= req.maxFalse ? '✓' : '✗'} No more than ${req.maxFalse} false alarm on legitimate staff — ${m.FP}`),
+      el('p', {class: m.FP <= req.maxFalse ? 'ok' : 'no'}, `${m.FP <= req.maxFalse ? '✓' : '✗'} ${req.maxFalse ? `No more than ${req.maxFalse} false alarm` : 'ZERO false alarms'} on legitimate staff — ${m.FP}`),
       el('p', {}, `Evaluation quality (balanced accuracy): `, el('b', {}, result.quality + '%')),
       el('p', {class:`tl-verdict ${result.meets ? 'ok' : 'no'}`}, result.meets ? 'Meets the release requirements. Discuss what it still misses.' : verdictAdvice(result))));
 }
@@ -426,7 +530,7 @@ function verdictAdvice(r) {
 }
 function renderHistory() {
   fill('tl-history', sim.runs.length ? sim.runs.map(run => el('tr', {class: run.meets ? 'ok' : ''},
-    el('td', {class:'tl-mono'}, '#' + run.n + (run.bonus ? '+' : '')),
+    el('td', {class:'tl-mono'}, (run.night ? '☾' : '☀') + ' #' + run.n + (run.bonus ? '+' : '')),
     el('td', {class:'tl-mono'}, `${run.cfg.th}+ · ${W_ORDER.map(id => run.cfg.w[id]).join('')} · ≥${run.cfg.alert}${run.cfg.ctx ? ' · ctx' : ''}`),
     el('td', {}, `${run.m.TP}/${run.m.TP + run.m.FN}`), el('td', {}, String(run.m.FP)), el('td', {}, run.q + '%'),
     el('td', {}, run.meets ? '✓' : '—'))) : el('tr', {}, el('td', {colspan:6, class:'tl-dim'}, 'No runs yet. Press “Run evaluation”.')));
@@ -443,7 +547,7 @@ function renderAnalystCases() {
       el('td', {}, el('span', {class:`tl-label tl-label-${a}`}, LABELS[a])), el('td', {}, r.alert ? `ALERT (${r.score})` : `allow (${r.score})`),
       el('td', {}, match ? 'agree' : 'DISCUSS'));
   });
-  fill(box, el('p', {}, `Your detector agrees with the analyst on `, el('b', {}, `${agree} of 10`), ' live events. Disagreements are discussion points, not automatically mistakes.'),
+  fill(box, el('p', {}, `Your detector agrees with the analyst on `, el('b', {}, `${agree} of ${EVENTS.length}`), ' live events. Disagreements are discussion points, not automatically mistakes.'),
     el('table', {class:'tl-table tl-small'}, el('thead', {}, el('tr', {}, ['Event', 'Account', 'Analyst said', 'Your detector', ''].map(h => el('th', {}, h)))), el('tbody', {}, rows)));
 }
 function renderRelease() {
@@ -455,6 +559,7 @@ function renderRelease() {
     el('h4', {}, 'Read this to Workstation A (Security Analyst)'),
     el('p', {}, `Current rules: ${live.m.TP}/7 attacks caught, ${live.m.FP} false alarm${live.m.FP === 1 ? '' : 's'} on the test suite${live.meets ? '' : ' — NOTE: your current settings no longer meet requirements'}.`),
     el('p', {}, 'Trade-off we accepted: ' + (verdictAdvice(live) || 'none on the test suite — but the live events may still disagree.')),
+    el('p', {}, sim.nightMet ? '☾ Night profile also tuned: zero false alarms for the skeleton crew.' : '☾ Night profile not tuned yet — the overnight team still needs one.'),
     codeDisplay(code, 'DETECTOR RELEASE CODE — A types this into the joint review'),
     el('p', {class:'ol-muted'}, 'The code holds your current rule settings. It changes whenever you change a rule.')));
 }
@@ -512,23 +617,28 @@ function renderReleaseDecision() {
   const detector = zone.workstation === 'B' ? (sim.bestMet ? configToInt(sim.config) : null) : sim.partnerDetector;
   const suite = detector !== null ? evaluate(intToConfig(detector), false) : null;
   const consequences = {
-    release: suite?.meets ? 'Released. Alerts now go to the security team for verification. Expect a small number of false alarms — the team knows which ones and why.'
+    release: (sim.release ? sim.releaseMet : suite?.meets) ? 'Released. Alerts now go to the security team for verification. Expect a small number of false alarms — the team knows which ones and why.'
       : suite ? 'Released without meeting requirements. Within an hour the security team is flooded with alerts or misses an attack. Go back and tune it — that is what testing is for.'
       : 'You are releasing without having seen the evaluation results. Swap codes first so both of you know what you are approving.',
     hold: 'Held for more tuning. Safe, but the company stays unprotected while you wait. Holding is right if requirements are not met — otherwise you need a reason.',
   };
+  const decide = choice => { if (sim.release) return; sim.release = choice; sim.releaseMet = Boolean(suite?.meets); save(); renderReleaseDecision(); };
+  const locked = Boolean(sim.release);
   fill('tl-decision',
     el('div', {class:'tl-classify'},
-      el('button', {type:'button', class:'ol-btn', 'aria-pressed':String(sim.release === 'release'), disabled:!ready, onclick:() => { sim.release = 'release'; save(); renderReleaseDecision(); }}, 'Approve release'),
-      el('button', {type:'button', class:'ol-btn', 'aria-pressed':String(sim.release === 'hold'), disabled:!ready, onclick:() => { sim.release = 'hold'; save(); renderReleaseDecision(); }}, 'Hold for more tuning')),
-    !ready ? el('p', {class:'ol-muted'}, 'Tick every review point together before deciding.') : null,
-    sim.release ? el('p', {class:`tl-review ${sim.release === 'release' && suite?.meets ? 'good' : 'warn'}`}, consequences[sim.release]) : null);
+      el('button', {type:'button', class:'ol-btn', 'aria-pressed':String(sim.release === 'release'), disabled:!ready || locked, onclick:() => decide('release')}, 'Approve release'),
+      el('button', {type:'button', class:'ol-btn', 'aria-pressed':String(sim.release === 'hold'), disabled:!ready || locked, onclick:() => decide('hold')}, 'Hold for more tuning')),
+    !ready ? el('p', {class:'ol-muted'}, 'Tick every review point together before deciding. 🔒 Once you choose, the decision is final.') : null,
+    locked ? el('p', {class:'ol-locked'}, '🔒 Decision locked — this is now part of your incident record.') : null,
+    sim.release ? el('p', {class:`tl-review ${sim.release === 'release' && sim.releaseMet ? 'good' : 'warn'}`}, consequences[sim.release]) : null);
 }
 
 /* ======================================================================
  * Bonus — new incidents
  * ==================================================================== */
 function renderBonus() {
+  $('tl-bonus-open').hidden = zone.workstation !== 'B';
+  text('tl-bonus-role', zone.workstation === 'B' ? 'You retune the detector. Workstation A: read the incidents and tell B which one must be caught and which must NOT be blocked.' : 'Your job: decide which new incident is a real attack and which is legitimate, and tell Workstation B — they retune the detector.');
   fill('tl-bonus-cases', BONUS_CASES.map(c => el('article', {class:'tl-bonus-card'},
     el('span', {class:'ol-kicker'}, c.attack ? 'NEW INCIDENT · CONFIRMED ATTACK' : 'NEW INCIDENT · LEGITIMATE'),
     el('h3', {}, c.name.replace('NEW: ', '')), el('p', {}, c.story),
@@ -546,10 +656,10 @@ function refreshCheckpoints() { Object.values(checks).forEach(c => c.update()); 
 function buildCheckpoints() {
   checks.a = checkpoint('tl-check-a', zone, 'a', {
     intro:'Report your conclusions to Mission Control. Use what you learned from the events, not guesses.',
-    lockReason:() => sim.reviews ? null : 'Classify every event and request at least one review from the security lead first.'});
+    lockReason:() => sim.reviews >= 2 && visibleEvents().every(e => sim.labels[e.id]) ? null : 'Classify both waves of events (16 in total) and get at least two reviews from the security lead first.'});
   checks.b = checkpoint('tl-check-b', zone, 'b', {
     intro:'Explain your detector design decisions to Mission Control.',
-    lockReason:() => sim.runs.length >= 2 ? null : `Run the evaluation at least twice — change something between runs and compare (${sim.runs.length}/2).`});
+    lockReason:() => !sim.bestMet ? 'Get the ☀ Day profile to meet its requirements first.' : !sim.nightMet ? 'Now tune the ☾ Night profile: zero false alarms for the skeleton crew.' : null});
   checks.joint = checkpoint('tl-check-joint', zone, 'joint', {
     intro:'Final release authorisation. Both workstations should agree every answer.',
     lockReason:() => !(zone.passed('a') && zone.passed('b')) ? `Waiting for ${[!zone.passed('a') ? 'Workstation A' : null, !zone.passed('b') ? 'Workstation B' : null].filter(Boolean).join(' and ')} to pass their sign-off. Use the time to swap codes.`
@@ -562,13 +672,10 @@ function wire() {
   document.querySelectorAll('[data-tab]').forEach(b => b.addEventListener('click', () => selectTab(b.dataset.tab)));
   $('tl-a-review').addEventListener('click', requestReview);
   $('tl-run').addEventListener('click', runEvaluation);
-  $('tl-reset-rules').addEventListener('click', () => { sim.config = structuredClone(START_CONFIG); configChanged(); });
+  $('tl-reset-rules').addEventListener('click', () => { if (sim.profile === 'night') sim.nightConfig = structuredClone(START_CONFIG); else sim.config = structuredClone(START_CONFIG); configChanged(); });
   $('tl-include-bonus').addEventListener('change', e => { sim.includeBonus = e.target.checked; save(); $('tl-eval-stale').hidden = !sim.runs.length; });
-  $('tl-bonus-open').addEventListener('click', () => { sim.includeBonus = true; $('tl-include-bonus').checked = true; save(); selectTab('b'); $('tl-run').focus(); });
-  $('tl-reset-sim').addEventListener('click', () => {
-    if (!window.confirm('Clear the simulation on this computer? Official server results are not affected.')) return;
-    store.clear(); location.reload();
-  });
+  $('tl-bonus-open').addEventListener('click', () => { sim.profile = 'day'; renderProfiles(); renderRules(); sim.includeBonus = true; $('tl-include-bonus').checked = true; save(); selectTab('b'); steppers.b?.go(0); $('tl-run').focus(); });
+  $('tl-reset-sim').addEventListener('click', staffReset);
   $('tl-analyst-entry').append(codeInput({...CODES.analyst, label:'Analyst handoff code from Workstation A', otherTypes:OTHER,
     onAccept:value => { sim.partnerAnalyst = value; save(); renderAnalystCases(); }}));
   hintPanel('tl-hints-a', [
@@ -578,9 +685,10 @@ function wire() {
   hintPanel('tl-hints-b', [
     'Look at the MISSED rows. Which signals do those attacks have? Are those signals switched on?',
     'False positives annoy and block real staff; false negatives let attackers in. Every rule is a trade-off between them.',
-    'Lower the failed-password threshold, give MFA spam and spraying their own weight, and try the business-context option. Then change one thing at a time and re-run.']);
+    'Lower the failed-password threshold, give MFA spam and spraying their own weight, and try the business-context option. Then change one thing at a time and re-run.',
+    'Night profile: almost everyone works at night, and new scanners are normal — so which signals can you no longer trust? Make sure no single “everyday” signal can raise an alert on its own.']);
 }
-function renderAll() { renderEventTable(); renderTimeline(); renderSignalNotebook(); renderFindings(); renderRules(); renderHistory(); renderAnalystCases(); renderRelease(); if (sim.selected) openEvent(sim.selected); }
+function renderAll() { renderProfiles(); text('tl-run-status', profileBlurb()); renderEventTable(); renderTimeline(); renderSignalNotebook(); renderFindings(); renderRules(); renderHistory(); renderAnalystCases(); renderRelease(); if (sim.selected) openEvent(sim.selected); }
 
 async function boot() {
   wire();
@@ -599,12 +707,34 @@ async function boot() {
   renderAll();
   if (sim.lastReview && sim.reviews) { /* keep feedback visible after refresh */ requestReviewSummaryOnly(); }
   buildCheckpoints();
-  zone.on(state => { renderStatus(state); refreshCheckpoints(); });
+  setupGuides();
+  zone.on(state => { renderStatus(state); refreshCheckpoints(); updateGuides(); });
   selectTab(zone.workstation === 'B' ? 'b' : 'a');
-  banner(`${zone.state.groupName}, Unit ${zone.state.workingUnit}: you are Workstation ${zone.workstation} — the ${zone.workstation === 'A' ? 'Security Data Analyst' : 'Detection Engineer'}. Detector rules were switched off overnight after too many false alarms. ${STORY.people.security.split(' ·')[0]} needs them back today.`, 'info');
+  $('tl-banner').hidden = true;
 }
 function requestReviewSummaryOnly() {
   const flagged = (sim.lastReview || []).length;
   fill('tl-a-feedback', el('p', {class:'ol-muted'}, `Last review (${sim.reviews}): ${flagged} event${flagged === 1 ? '' : 's'} flagged. Request another review after changes.`));
 }
+/* ---------- Guided steps, role lock and timed bonus ---------- */
+const steppers = {};
+function setupGuides() {
+  applyRoleTabs(zone.workstation);
+  for (const view of ['a', 'b', 'joint', 'bonus']) {
+    const panel = document.querySelector(`[data-panel="${view}"]`);
+    if (!panel || panel.getAttribute('aria-hidden') === 'true') continue;
+    const last = panel.querySelectorAll(':scope > .ol-step').length - 1;
+    steppers[view] = stepify(panel, {key:`train-${zone.state.group}-${zone.state.workingUnit}-${view}`, isDone:i => i === last && zone.passed(view)});
+  }
+}
+function updateGuides() {
+  Object.values(steppers).forEach(s => s?.refresh());
+  const status = applyBonus(zone, store, {onUnlock:() => { const b = $('tl-key-sub'); if (b) b.textContent = 'Saved to your group by the server. You finished early — the optional challenge tab is now open.'; }});
+  if (status === 'late' && zone.zoneStatus().keyEarned) text('tl-key-sub', `Saved to your group by the server. Zone complete — well done. (The optional challenge only opens if you finish with ${BONUS_MIN_MINUTES_LEFT}+ minutes left.)`);
+}
+function staffReset() {
+  if (window.prompt('Staff only: type RESET to clear the simulation on this computer. Official server results are not affected.') !== 'RESET') return;
+  store.clear(); try { Object.keys(sessionStorage).filter(k => k.startsWith('ol2:step:')).forEach(k => sessionStorage.removeItem(k)); } catch {} location.reload();
+}
+
 boot();

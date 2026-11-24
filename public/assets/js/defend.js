@@ -6,7 +6,7 @@
  * Official progress = server sign-offs (defend-investigate, defend-response, defend-joint, defend-bonus).
  */
 import {STORY, $, el, fill, text, toast, clamp, localStore, encodeCode, codeInput, codeDisplay, packBits, unpackBits,
-  hintPanel, createZone, checkpoint, describeError, notLoggedIn, bindConnectionErrors} from './mission-core.js';
+  hintPanel, createZone, checkpoint, describeError, notLoggedIn, bindConnectionErrors, applyRoleTabs, applyBonus, stepify, BONUS_MIN_MINUTES_LEFT} from './mission-core.js';
 
 const zone = createZone({zone:'defend', tasks:{a:'defend-investigate', b:'defend-response', joint:'defend-joint', bonus:'defend-bonus'}});
 const store = localStore('defend');
@@ -34,19 +34,32 @@ const SITES = {
     {id:'E7', label:'Check the car-park camera', cost:4, evidence:'A white “Grid Repairs” van arrived at 08:24 — seven minutes BEFORE the crash. Its plate is not on today’s visitor list.'},
     {id:'E8', label:'Walk past the van', cost:3, evidence:'Through the window: a laptop and a box of USB drives on the passenger seat. Nobody inside.'},
   ]},
+  cafe:{name:'Harbour Café · opposite HQ', status:'Wi-Fi anomaly', actions:[
+    {id:'E10', label:'Scan for Wi-Fi networks', cost:4, evidence:'Two networks are called “Northstar-Staff”. One is ours. The other is coming from inside the café — a fake copy (an “evil twin”) that shows a login page asking for staff passwords.'},
+    {id:'E11', label:'Ask the café staff', cost:3, evidence:'A man in a hi-vis jacket sat by the window from 08:10 with a laptop and a small antenna. He left at 08:50, walking towards your car park.'},
+  ]},
+  busstop:{name:'Riverside Road bus stop', status:'Lost property', actions:[
+    {id:'E12', label:'Look at the phone a commuter handed in', cost:3, evidence:'A commuter saw a man in hi-vis drop this phone. On screen: a draft email “from Helen Ward (CEO)” to Finance — “Urgent: pay the attached £8,400 invoice before 10:00. I’m in meetings, don’t call me.”'},
+    {id:'E13', label:'Compare the email address with the real one', cost:3, evidence:'Real Northstar emails end in @northstarsystems.example. The draft uses @northstar-systems.example — one extra hyphen. A lookalike domain, registered yesterday.'},
+  ]},
   office:{name:'Northstar HQ · reception radio', status:'On UPS power', actions:[
     {id:'E9', label:'Radio reception', cost:2, evidence:'Reception: “A Grid Repairs engineer is here asking to check the electrics in the server room. He seems in a hurry.”'},
   ]},
 };
 const ALL_EVIDENCE = Object.values(SITES).flatMap(s => s.actions);
+const N_INTEL = 13;
 const INCIDENTS = {
   power:{title:'INC-1 · Power disruption', type:'power', assets:['ups', 'servers', 'footpath'], key:['E3', 'E4'], urgency:['High', 'Critical'],
     good:'The power incident report is accurate: hazard, cause, impact and restoration time are all evidenced.'},
   intrusion:{title:'INC-2 · Suspected intruder', type:'social', assets:['server-room', 'badges'], key:['E5', 'E6', 'E7'], urgency:['High', 'Critical'],
     good:'You connected the dots: a fake engineer, a copied badge and a van that arrived before the crash. This is social engineering exploiting the outage.'},
+  fraud:{title:'INC-4 · Fake CEO payment request', type:'fraud', assets:['finance', 'email'], key:['E12', 'E13'], urgency:['High', 'Critical'],
+    good:'Exactly: a CEO-impersonation email from a lookalike domain, timed for when everyone is distracted. Finance must verify by phone before paying anything.'},
+  wifi:{title:'INC-3 · Fake Wi-Fi network', type:'network', assets:['wifi', 'accounts'], key:['E10', 'E11'], urgency:['High', 'Critical'],
+    good:'Spot on: a fake “Northstar-Staff” network run from the café by the same man in hi-vis — designed to steal staff passwords.'},
 };
-const TYPES = {power:'Physical damage / power outage', social:'Social engineering / unauthorised access', malware:'Malware infection', weather:'Severe weather'};
-const ASSETS = {ups:'UPS battery & building power', servers:'Servers & critical services', footpath:'Staff footpath (exposed cables)', 'server-room':'Server room', badges:'Door badges / access control', email:'Email system'};
+const TYPES = {power:'Physical damage / power outage', social:'Social engineering / unauthorised access', network:'Network attack / fake Wi-Fi', fraud:'Fraud / impersonation email', malware:'Malware infection', weather:'Severe weather'};
+const ASSETS = {ups:'UPS battery & building power', servers:'Servers & critical services', footpath:'Staff footpath (exposed cables)', 'server-room':'Server room', badges:'Door badges / access control', wifi:'Staff Wi-Fi & laptops', accounts:'Staff passwords & accounts', finance:'Finance & payments', email:'Email system'};
 
 /* ======================================================================
  * B — Office simulation model
@@ -82,6 +95,8 @@ function advance(o, minutes) {
     if (src === 'ups') { o.battery = Math.max(0, o.battery - kwNow(o) / 60); if (o.battery === 0 && !o.flags.blackout) { o.flags.blackout = true; note(o, 'UPS battery exhausted. Every server lost power without shutting down — data may be corrupted.', 'bad'); } }
     if (src === 'generator' && !o.flags.genOnline) { o.flags.genOnline = true; note(o, 'Generator connected. Critical services now have stable power.', 'good'); }
     if (o.fin07 === 'infected' && o.minute >= 20 && !o.flags.spread) { o.flags.spread = true; o.fin07 = 'spread'; note(o, 'FIN-07 malware has spread: the shared file server is encrypting files.', 'bad'); }
+    if (o.minute >= 35 && !o.flags.fraudStopped && !o.flags.fraudBlocked && !o.flags.fraudPaid) { o.flags.fraudPaid = true; note(o, 'Finance paid the “urgent CEO invoice”: £8,400 has gone to a criminal’s bank account.', 'bad'); }
+    if (o.minute >= 25 && !o.flags.wifiWarned && !o.flags.wifiBlocked && !o.flags.wifiStolen) { o.flags.wifiStolen = true; note(o, 'Four staff typed their passwords into the fake “Northstar-Staff” Wi-Fi login page. The attacker now has them.', 'bad'); }
     if (o.visitor === 'inside' && o.minute >= o.flags.visitorInAt + 6 && !o.flags.usb) { o.flags.usb = true; note(o, 'Server room: an unknown USB device has been plugged into the core switch.', 'bad'); }
   }
 }
@@ -91,10 +106,11 @@ function metrics(o) {
   let safety = 55 + (f.cordon ? 20 : 0) + (f.staffUpdate ? 10 : 0) + (o.visitor === 'refused' || o.visitor === 'verified' ? 10 : 0) - (o.visitor === 'inside' && !f.usbRemoved ? 15 : 0) + (f.evacuated ? 5 : 0) - (f.touchedCabinet ? 35 : 0);
   let security = 35 + (o.fin07 === 'isolated' ? 20 : 0) + (o.fin07 === 'off' ? 12 : 0) - (o.fin07 === 'spread' ? 25 : 0) + (f.fileServerContained ? 15 : 0)
     + (o.visitor === 'verified' ? 20 : o.visitor === 'refused' ? 12 : o.visitor === 'escorted' ? 4 : 0) - (f.usb && !f.usbRemoved ? 25 : 0) + (f.usbRemoved ? 5 : 0)
-    + (f.badgeDisabled ? 10 : 0) + (f.phishWarning ? 8 : 0) + (f.evidence ? 5 : 0);
+    + (f.badgeDisabled ? 10 : 0) + (f.phishWarning ? 8 : 0) + (f.evidence ? 5 : 0)
+    + (f.wifiBlocked ? 10 : 0) + (f.wifiWarned ? 5 : 0) - (f.wifiStolen && !f.wifiReset ? 20 : 0) + (f.fraudBlocked ? 6 : 0);
   const src = powerSource(o);
   let ops = 30 + (src === 'mains' || src === 'generator' ? 25 : src === 'ups' ? 15 : -10) + (o.loads.orders && src !== 'none' ? 15 : 0) + (o.loads.core && src !== 'none' ? 10 : 0)
-    + (f.ceoBriefed ? 10 : 0) + (f.staffUpdate ? 5 : 0) - (f.blackout && !f.integrityChecked ? 30 : 0) - (f.evacuated ? 30 : 0) - (o.fin07 === 'spread' && !f.fileServerContained ? 10 : 0);
+    + (f.ceoBriefed ? 10 : 0) + (f.staffUpdate ? 5 : 0) - (f.fraudPaid ? (f.fraudRecalled ? 5 : 25) : 0) - (f.blackout && !f.integrityChecked ? 30 : 0) - (f.evacuated ? 30 : 0) - (o.fin07 === 'spread' && !f.fileServerContained ? 10 : 0);
   return {safety:clamp(safety), security:clamp(security), ops:clamp(ops)};
 }
 function objectives(o) {
@@ -104,6 +120,8 @@ function objectives(o) {
     ['malware', 'Infected PC contained (and any spread dealt with)', o.fin07 === 'isolated' || o.fin07 === 'off' || (o.fin07 === 'spread' && o.flags.fileServerContained)],
     ['visitor', 'Visitor kept out of the server room (or damage reversed)', ['refused', 'verified'].includes(o.visitor) || (o.visitor === 'escorted') || Boolean(o.flags.usbRemoved)],
     ['power', 'Critical services will stay powered until supply returns', powerOk],
+    ['fraud', 'Fake CEO payment stopped (or recalled)', o.flags.fraudPaid ? Boolean(o.flags.fraudRecalled) : Boolean(o.flags.fraudStopped || o.flags.fraudBlocked)],
+    ['wifi', 'Fake Wi-Fi dealt with (and any stolen passwords reset)', Boolean((o.flags.wifiBlocked || o.flags.wifiWarned) && (!o.flags.wifiStolen || o.flags.wifiReset))],
   ];
 }
 /* Room actions. Each returns a description of what happened. avail(o) decides if it's offered. */
@@ -126,6 +144,10 @@ const ACTIONS = {
   it:[
     {id:'phish', label:'Warn all staff: IT will never ask for your password', cost:2, avail:o => !o.flags.phishWarning, run:o => { o.flags.phishWarning = true; return ['good', 'Warning sent. One employee admits they shared a password — IT resets it.']; }},
     {id:'evidence', label:'Preserve evidence: export CCTV, door log and FIN-07 alerts', cost:4, avail:o => !o.flags.evidence, run:o => { o.flags.evidence = true; return ['good', 'Evidence saved with timestamps. This will matter for the police and the incident review.']; }},
+    {id:'wifi-scan', label:'Scan the airwaves for suspicious Wi-Fi yourself', cost:6, avail:o => !o.flags.wifiKnown && !intel('E10'), run:o => { o.flags.wifiKnown = true; return ['', 'Scan complete: there are two “Northstar-Staff” networks. One of them is not ours.']; }},
+    {id:'wifi-warn', label:'Warn staff: don’t join “Northstar-Staff” Wi-Fi or type passwords into Wi-Fi pop-ups — use the wired network', cost:3, avail:o => !o.flags.wifiWarned, run:o => { o.flags.wifiWarned = true; return ['good', 'Warning sent. Staff switch to wired connections; two report a “please log in again” pop-up they ignored.']; }},
+    {id:'wifi-block', label:'Get the network team to block the fake network and lock laptops to the real one', cost:4, avail:o => !o.flags.wifiBlocked && (intel('E10') || o.flags.wifiKnown), run:o => { o.flags.wifiBlocked = true; return ['good', 'Company laptops will now only connect to the genuine network. The fake one is useless.']; }},
+    {id:'wifi-reset', label:'Reset the passwords of the four staff who typed them into the fake page', cost:4, avail:o => o.flags.wifiStolen && !o.flags.wifiReset, run:o => { o.flags.wifiReset = true; return ['warn', 'Passwords reset and sessions logged out. Recovered — but only after the attacker had them for a while.']; }},
     {id:'usb', label:'Remove the unknown USB device, quarantine it and check the core switch', cost:6, avail:o => o.flags.usb && !o.flags.usbRemoved, run:o => { o.flags.usbRemoved = true; return ['warn', 'Device removed and bagged as evidence. The switch configuration is checked and restored. Recovered.']; }},
   ],
   server:[
@@ -137,6 +159,10 @@ const ACTIONS = {
     {id:'integrity', label:'Run integrity checks, then restart services in order (network → database → apps)', cost:8, avail:o => o.flags.blackout && !o.flags.integrityChecked && ['mains', 'generator'].includes(powerSource(o)), run:o => { o.flags.integrityChecked = true; o.loads.core = true; o.loads.orders = true; return ['warn', 'Two corrupted tables repaired from logs. Services are back — recovered, but it cost time.']; }},
   ],
   mgmt:[
+    {id:'fraud-verify', label:'Phone Helen Ward on her known mobile number to check the “urgent invoice”', cost:3, avail:o => !o.flags.fraudStopped && !o.flags.fraudPaid, run:o => { o.flags.fraudStopped = true; return ['good', 'Helen: “I sent no such email!” Finance cancels the payment. Verifying through a trusted channel just saved £8,400.']; }},
+    {id:'fraud-block', label:'Block the lookalike domain and warn Finance about fake CEO emails', cost:3, avail:o => !o.flags.fraudBlocked && (intel('E13') || o.flags.fraudStopped), run:o => { o.flags.fraudBlocked = true; return ['good', 'Emails from @northstar-systems.example are now blocked, and Finance knows what to look for.']; }},
+    {id:'fraud-pay', label:'Tell Finance to pay it — the CEO said it’s urgent', cost:1, avail:o => !o.flags.fraudStopped && !o.flags.fraudPaid, run:o => { o.flags.fraudPaid = true; return ['bad', '£8,400 sent. Nobody checked whether the email was really from Helen.']; }},
+    {id:'fraud-recall', label:'Call the bank’s fraud line to stop the payment', cost:5, avail:o => o.flags.fraudPaid && !o.flags.fraudRecalled, run:o => { o.flags.fraudRecalled = true; return ['warn', 'The bank freezes the money before it leaves the receiving account. Recovered — just. It will still go in the incident review.']; }},
     {id:'cordon', label:'Cordon off the damaged cabinet and footpath; keep everyone away', cost:2, avail:o => !o.flags.cordon, run:o => { o.flags.cordon = true; return ['good', 'Area taped off; staff redirected to the main entrance.']; }},
     {id:'touch', label:'Send the caretaker to try resetting the cabinet', cost:3, avail:o => !o.flags.touchedCabinet && !o.flags.cordon, run:o => { o.flags.touchedCabinet = true; return ['bad', 'The caretaker gets a shock from exposed cables and is taken to first aid. Only qualified utility staff should go near it. Cordon the area now.']; }},
     {id:'ceo', label:'Brief Helen Ward (CEO): impact, actions taken, next update time', cost:3, avail:o => !o.flags.ceoBriefed, run:o => { o.flags.ceoBriefed = true; return ['good', 'Leadership informed. Customers will be told the orders system may be slow.']; }},
@@ -146,9 +172,9 @@ const ACTIONS = {
 const INITIAL_ALERTS = {
   reception:'A man in a hi-vis “Grid Repairs” jacket wants to get into the server room “to check the electrics”.',
   workspace:'FIN-07 (Finance) is showing pop-ups: “Your files are being secured — do not turn off.” The employee is worried.',
-  it:'Three staff say someone from “IT” phoned asking for their password “to restore their account after the outage”.',
+  it:'Three staff say someone from “IT” phoned asking for their password “to restore their account after the outage”. Others say the Wi-Fi keeps asking them to “log in again”.',
   server:'Mains power lost. UPS battery supplying everything. Non-critical systems are still drawing power.',
-  mgmt:'The CEO wants an update. Staff are walking past the damaged cabinet outside.',
+  mgmt:'The CEO wants an update. Staff are walking past the damaged cabinet outside. Finance has an “urgent” email from the CEO asking them to pay an £8,400 invoice before 10:00.',
 };
 
 /* ======================================================================
@@ -158,7 +184,7 @@ const sim = {found:[], minuteA:0, site:null, reports:{}, office:freshOffice(), r
 function save() { store.set('sim', sim); }
 function restore() { const s = store.get('sim', null); if (s) Object.assign(sim, s); }
 /** Intel known on this computer: A's own evidence, or decoded from A's code on B. */
-function intel(id) { if (sim.found.includes(id)) return true; if (sim.partnerIntel === null) return false; return unpackBits(sim.partnerIntel, 9)[Number(id.slice(1)) - 1]; }
+function intel(id) { if (sim.found.includes(id)) return true; if (sim.partnerIntel === null) return false; return unpackBits(sim.partnerIntel, N_INTEL)[Number(id.slice(1)) - 1]; }
 
 /* ======================================================================
  * A rendering
@@ -217,12 +243,12 @@ function submitReport(key, form) {
   sim.reports[key] = {...r, ok:fb.length === 0, feedback:fb}; save();
   renderReports(); renderIntelCode(); refreshCheckpoints();
 }
-function renderReports() { fill('dt-reports', reportForm('power'), reportForm('intrusion')); }
+function renderReports() { fill('dt-reports', reportForm('power'), reportForm('intrusion'), reportForm('wifi'), reportForm('fraud')); }
 function renderIntelCode() {
   const box = $('dt-intel');
   if (!sim.found.length) { fill(box, el('p', {class:'ol-muted'}, 'Your intelligence code appears once you collect evidence.')); return; }
-  const bits = Array.from({length:9}, (_, i) => sim.found.includes('E' + (i + 1)));
-  const key = ['E4', 'E5', 'E6', 'E7'].filter(id => sim.found.includes(id));
+  const bits = Array.from({length:N_INTEL}, (_, i) => sim.found.includes('E' + (i + 1)));
+  const key = ['E4', 'E5', 'E6', 'E7', 'E10', 'E13'].filter(id => sim.found.includes(id));
   fill(box, el('div', {class:'ol-handoff'}, el('h4', {}, 'Read this to Workstation B (Incident Response)'),
     key.length ? key.map(id => el('p', {}, '› ' + ALL_EVIDENCE.find(x => x.id === id).evidence)) : el('p', {}, 'You have not found the most useful facts yet — keep investigating.'),
     codeDisplay(encodeCode(CODES.intel.type, packBits(bits), CODES.intel.chars), 'INTEL CODE — B types this into “Field intelligence”'),
@@ -243,16 +269,17 @@ function renderFloor() {
 }
 function roomAlert(id) {
   const o = sim.office;
-  return {reception:o.visitor === 'waiting', workspace:o.fin07 === 'infected' || (o.fin07 === 'spread' && !o.flags.fileServerContained), it:!o.flags.phishWarning || (o.flags.usb && !o.flags.usbRemoved),
-    server:powerSource(o) === 'ups' && runtimeMin(o) < bridgeTarget(o) - o.minute || (o.flags.blackout && !o.flags.integrityChecked), mgmt:!o.flags.cordon}[id];
+  return {reception:o.visitor === 'waiting', workspace:o.fin07 === 'infected' || (o.fin07 === 'spread' && !o.flags.fileServerContained), it:!o.flags.phishWarning || (o.flags.usb && !o.flags.usbRemoved) || !(o.flags.wifiBlocked || o.flags.wifiWarned) || (o.flags.wifiStolen && !o.flags.wifiReset),
+    mgmt:!o.flags.cordon || (!o.flags.fraudStopped && !o.flags.fraudBlocked && !o.flags.fraudPaid) || (o.flags.fraudPaid && !o.flags.fraudRecalled),
+    server:powerSource(o) === 'ups' && runtimeMin(o) < bridgeTarget(o) - o.minute || (o.flags.blackout && !o.flags.integrityChecked)}[id];
 }
 function roomState(id) {
   const o = sim.office;
   if (id === 'reception') return o.visitor === 'inside' && o.flags.usbRemoved ? 'Visitor gone · device removed' : {waiting:'Visitor waiting', inside:'Visitor INSIDE server room', escorted:'Visitor escorted', verified:'Visitor turned away', refused:'Visitor refused'}[o.visitor];
   if (id === 'workspace') return {infected:'FIN-07 infected', isolated:'FIN-07 isolated', off:'FIN-07 powered off', spread:'Malware spreading!'}[o.fin07];
   if (id === 'server') { const src = powerSource(o); return src === 'ups' ? `UPS · ${kwNow(o)} kW · ${runtimeMin(o)} min left` : src === 'none' ? 'NO POWER' : src === 'generator' ? 'On generator' : 'Mains restored'; }
-  if (id === 'it') return o.flags.usb && !o.flags.usbRemoved ? 'Unknown USB on switch!' : o.flags.phishWarning ? 'Warning sent' : 'Suspicious calls';
-  return o.flags.cordon ? 'Area cordoned' : 'Awaiting decisions';
+  if (id === 'it') return o.flags.usb && !o.flags.usbRemoved ? 'Unknown USB on switch!' : o.flags.wifiStolen && !o.flags.wifiReset ? 'Passwords stolen!' : o.flags.phishWarning && (o.flags.wifiBlocked || o.flags.wifiWarned) ? 'Warnings sent' : 'Calls & Wi-Fi problems';
+  return o.flags.fraudPaid && !o.flags.fraudRecalled ? '£8,400 paid to fraudsters!' : o.flags.cordon && (o.flags.fraudStopped || o.flags.fraudBlocked || o.flags.fraudRecalled) ? 'Under control' : 'Decisions waiting';
 }
 function renderRoom() {
   const o = sim.office, id = sim.room;
@@ -261,6 +288,8 @@ function renderRoom() {
   if (id === 'reception' && intel('E4')) intelNotes.push('Field intel: the network operator says they sent NOBODY.');
   if (id === 'reception' && intel('E5')) intel('E5') && intelNotes.push('Field intel: D. Moss’s badge was used at 08:52 — she is on holiday.');
   if (id === 'server' && intel('E4')) intelNotes.push('Field intel: mains power back in about 90 minutes (at 10:17).');
+  if (id === 'mgmt' && intel('E13')) intelNotes.push('Field intel: the “CEO” email comes from a lookalike domain (@northstar-systems.example).');
+  if (id === 'it' && intel('E10')) intelNotes.push('Field intel: a fake “Northstar-Staff” Wi-Fi network is running from the café opposite.');
   fill('dt-room',
     el('span', {class:'ol-kicker'}, ROOMS[id].name.toUpperCase()),
     el('p', {class:'dt-room-alert'}, roomAlert(id) ? INITIAL_ALERTS[id] : 'Nothing urgent here right now.'),
@@ -299,8 +328,9 @@ function renderOfficeStatus() {
   $('dt-b-verdict').dataset.kind = stable ? 'good' : 'warn';
 }
 function isStable() { const o = sim.office, m = metrics(o); return objectives(o).every(x => x[2]) && Object.values(m).every(v => v >= 50); }
-function responseBits() { const o = sim.office; return [o.fin07 === 'isolated' || o.fin07 === 'off', ['refused', 'verified'].includes(o.visitor), Boolean(o.flags.badgeDisabled), o.genRequestedAt !== null, Boolean(o.flags.blackout), Boolean(o.flags.evidence), Boolean(o.flags.cordon), o.visitor === 'inside', o.fin07 === 'spread' || Boolean(o.flags.fileServerContained)]; }
-const RESPONSE_TEXT = ['Infected PC contained', 'Visitor kept out', 'Copied badge disabled', 'Generator requested', 'UPS ran flat (blackout)', 'Evidence preserved', 'Danger area cordoned', 'Visitor was let in', 'Malware spread to file server'];
+function responseBits() { const o = sim.office; return [o.fin07 === 'isolated' || o.fin07 === 'off', ['refused', 'verified'].includes(o.visitor), Boolean(o.flags.badgeDisabled), o.genRequestedAt !== null, Boolean(o.flags.blackout), Boolean(o.flags.evidence), Boolean(o.flags.cordon), o.visitor === 'inside', o.fin07 === 'spread' || Boolean(o.flags.fileServerContained), Boolean(o.flags.wifiBlocked), Boolean(o.flags.wifiStolen), Boolean(o.flags.fraudStopped || o.flags.fraudBlocked), Boolean(o.flags.fraudPaid)]; }
+const RESPONSE_TEXT = ['Infected PC contained', 'Visitor kept out', 'Copied badge disabled', 'Generator requested', 'UPS ran flat (blackout)', 'Evidence preserved', 'Danger area cordoned', 'Visitor was let in', 'Malware spread to file server', 'Fake Wi-Fi blocked', 'Passwords stolen via fake Wi-Fi', 'Fake CEO payment stopped', 'Fraudulent £8,400 payment sent'];
+const N_RESPONSE = RESPONSE_TEXT.length;
 function renderResponseCode() {
   const box = $('dt-response'); const o = sim.office;
   if (!o.log.length) { fill(box, el('p', {class:'ol-muted'}, 'Your response code appears once you take action.')); return; }
@@ -319,15 +349,15 @@ const RECOVERY = {
 const RIGHT_ORDER = ['people', 'contain', 'power', 'restore', 'review'];
 function renderJoint() {
   const isA = zone.workstation === 'A';
-  const mine = isA ? (sim.found.length ? encodeCode(CODES.intel.type, packBits(Array.from({length:9}, (_, i) => sim.found.includes('E' + (i + 1)))), 3) : null)
+  const mine = isA ? (sim.found.length ? encodeCode(CODES.intel.type, packBits(Array.from({length:N_INTEL}, (_, i) => sim.found.includes('E' + (i + 1)))), 3) : null)
     : (sim.office.log.length ? encodeCode(CODES.response.type, packBits(responseBits()), 3) : null);
   const want = isA ? CODES.response : CODES.intel;
   fill('dt-joint-codes', el('div', {class:'ol-grid2'},
     el('div', {class:'ol-panel'}, el('span', {class:'ol-kicker'}, 'THIS COMPUTER'), mine ? codeDisplay(mine, isA ? 'YOUR INTEL CODE' : 'YOUR RESPONSE CODE') : el('p', {class:'ol-muted'}, 'Do some of your own station’s work first.')),
     el('div', {class:'ol-panel'}, el('span', {class:'ol-kicker'}, 'YOUR PARTNER'), codeInput({...want, label:`Type the ${want.label} code your partner reads out`, otherTypes:OTHER,
       onAccept:v => { if (isA) sim.partnerResponse = v; else sim.partnerIntel = v; save(); renderJoint(); renderRoom(); }}))));
-  const intelBits = isA ? Array.from({length:9}, (_, i) => sim.found.includes('E' + (i + 1))) : (sim.partnerIntel !== null ? unpackBits(sim.partnerIntel, 9) : null);
-  const respBits = isA ? (sim.partnerResponse !== null ? unpackBits(sim.partnerResponse, 9) : null) : (sim.office.log.length ? responseBits() : null);
+  const intelBits = isA ? Array.from({length:N_INTEL}, (_, i) => sim.found.includes('E' + (i + 1))) : (sim.partnerIntel !== null ? unpackBits(sim.partnerIntel, N_INTEL) : null);
+  const respBits = isA ? (sim.partnerResponse !== null ? unpackBits(sim.partnerResponse, N_RESPONSE) : null) : (sim.office.log.length ? responseBits() : null);
   const items = [];
   if (intelBits) intelBits.forEach((b, i) => b && items.push(['A', ALL_EVIDENCE[i].evidence]));
   if (respBits) respBits.forEach((b, i) => b && items.push(['B', RESPONSE_TEXT[i]]));
@@ -340,12 +370,19 @@ function renderJoint() {
     if (respBits[4]) gaps.push('The UPS ran flat. Could earlier load-shedding or the generator have prevented it?');
     if (!intelBits[3]) gaps.push('Nobody confirmed with the network operator — the fake engineer could have been spotted sooner.');
     if (!respBits[5]) gaps.push('Evidence was not preserved — the police and the review will have less to work with.');
+    if (intelBits[9] && !respBits[9]) gaps.push('Intel found the fake Wi-Fi network, but it was never blocked.');
+    if (respBits[10]) gaps.push('Staff passwords were stolen through the fake Wi-Fi. How could intel and response have stopped it sooner?');
+    if (!intelBits[9]) gaps.push('Nobody checked the café — the fake Wi-Fi was running in plain sight.');
+    if (respBits[12]) gaps.push('Finance paid the fake CEO invoice. What single phone call would have stopped it?');
+    if (intelBits[12] && !respBits[11]) gaps.push('Intel spotted the lookalike email domain, but it was never blocked or reported to Finance.');
   }
   fill('dt-joint-gaps', gaps.length ? el('ul', {}, gaps.map(g => el('li', {}, g))) : el('p', {class:'ol-muted'}, intelBits && respBits ? 'No major gaps found. Talk through what you would do differently anyway.' : 'Gaps appear once both codes are loaded.'));
   renderOrder();
 }
 function renderOrder() {
-  fill('dt-order-pick', Object.entries(RECOVERY).map(([k, l]) => el('button', {type:'button', class:'ol-btn dt-orderbtn', disabled:sim.order.includes(k), onclick:() => { sim.order.push(k); save(); renderOrder(); }}, l)));
+  const complete = sim.order.length === RIGHT_ORDER.length;
+  $('dt-order-reset').hidden = complete || !sim.order.length;
+  fill('dt-order-pick', complete ? el('p', {class:'ol-locked'}, '🔒 Recovery order locked in.') : Object.entries(RECOVERY).map(([k, l]) => el('button', {type:'button', class:'ol-btn dt-orderbtn', disabled:sim.order.includes(k), onclick:() => { sim.order.push(k); save(); renderOrder(); refreshCheckpoints(); }}, l)));
   fill('dt-order-list', sim.order.length ? sim.order.map((k, i) => el('li', {}, el('b', {}, i + 1), RECOVERY[k])) : el('li', {class:'ol-muted'}, 'Click the steps in the order your team agrees.'));
   const fb = $('dt-order-fb');
   if (sim.order.length < RIGHT_ORDER.length) { fb.textContent = ''; fb.removeAttribute('data-kind'); return; }
@@ -354,7 +391,7 @@ function renderOrder() {
   else {
     const why = {people:'People’s safety always comes before systems.', contain:'Stop the threat spreading before you restore anything, or you restore onto a compromised network.',
       power:'Critical services need power before you can restore them in order.', restore:'Restore with integrity checks after containment.', review:'Documentation finishes the incident; it doesn’t come first.'}[RIGHT_ORDER[wrong]];
-    fb.textContent = `Step ${wrong + 1} is in the wrong place. ${why} Reset and try again.`; fb.dataset.kind = 'warn';
+    fb.textContent = `Your order is locked in — but step ${wrong + 1} was in the wrong place. ${why} In a real incident, that mistake would have cost time. Discuss it before you sign off.`; fb.dataset.kind = 'warn';
   }
 }
 
@@ -367,31 +404,44 @@ const BACKUPS = [
   {id:'b3', name:'Sunday 02:00', verify:'Tested OK last week', test:'Test restore works, but three days of changes would be lost.'},
 ];
 function renderBonus() {
-  const b = sim.bonus;
+  const b = sim.bonus, c = b.choices;
+  const out = {
+    d1:{use:['warn', 'You restored the corrupted backup. Half the files won’t open and IT loses an hour finding out why. IT security now takes over the restore — and your choice is in the incident log.'],
+      escalate:['good', 'Correct. A failed backup is an incident in itself — it might be linked to the malware. IT security investigates.'],
+      delete:['warn', 'You deleted it. That destroyed evidence of when the malware arrived. IT security takes over — and your choice is in the incident log.']},
+    d2:{b1:['warn', 'That backup failed its test. The restore crashes halfway and staff wait another 40 minutes for a second attempt.'],
+      b2:['good', 'The newest backup that passed a test restore. You lose one day of work, not three.'],
+      b3:['warn', 'It works, but you lose two extra days of work when a newer tested backup existed. Teams will have to redo it.']},
+    d3:{nobody:['warn', 'Teams keep working without knowing yesterday’s changes are gone. On Thursday, an order is shipped twice.'],
+      owners:['good', 'Recovery decision documented. That closes the secondary incident.'],
+      everyone:['warn', 'Customers panic about a data loss that never affected them. The phones don’t stop ringing.']},
+  };
+  const result = key => c[key] ? [el('p', {class:`tl-review ${out[key][c[key]][0]}`}, out[key][c[key]][1]), el('p', {class:'ol-locked'}, '🔒 Final.')] : null;
   const steps = [
-    el('div', {class:'dt-bstep'}, el('span', {class:'ol-kicker'}, 'DECISION 1'), el('h4', {}, 'Tonight’s backup failed verification. What now?'),
-      choice('d1', [['use', 'Restore it anyway — it’s the newest'], ['escalate', 'Escalate to IT security and treat it as unusable until investigated'], ['delete', 'Delete it to tidy up']]),
-      b.choices.d1 ? el('p', {class:`tl-review ${b.choices.d1 === 'escalate' ? 'good' : 'warn'}`}, {use:'Restoring a corrupted backup can bring back broken or infected data. Try again.', delete:'Deleting it destroys evidence of what went wrong — it may show when the malware arrived. Try again.', escalate:'Correct. A failed backup is itself an incident: it might be linked to the malware.'}[b.choices.d1]) : null),
-    b.choices.d1 === 'escalate' ? el('div', {class:'dt-bstep'}, el('span', {class:'ol-kicker'}, 'DECISION 2'), el('h4', {}, 'Choose a recovery point — test before you trust'),
+    el('div', {class:'dt-bstep'}, el('span', {class:'ol-kicker'}, 'DECISION 1 · FINAL'), el('h4', {}, 'Tonight’s backup failed verification. What now?'),
+      choice('d1', [['use', 'Restore it anyway — it’s the newest'], ['escalate', 'Escalate to IT security and treat it as unusable until investigated'], ['delete', 'Delete it to tidy up']]), result('d1')),
+    c.d1 ? el('div', {class:'dt-bstep'}, el('span', {class:'ol-kicker'}, 'DECISION 2 · FINAL'), el('h4', {}, 'Choose a recovery point — test before you trust'),
       el('ul', {class:'dt-backups'}, BACKUPS.map(x => el('li', {}, el('b', {}, x.name), el('span', {}, x.verify),
-        b.tested.includes(x.id) ? el('em', {}, x.test) : el('button', {type:'button', class:'ol-btn ol-btn-quiet', onclick:() => { b.tested.push(x.id); save(); renderBonus(); }}, 'Run test restore')))),
-      choice('d2', BACKUPS.map(x => [x.id, 'Use ' + x.name]), id => !b.tested.includes(id) ? 'Test it first' : null),
-      b.choices.d2 ? el('p', {class:`tl-review ${b.choices.d2 === 'b2' ? 'good' : 'warn'}`}, {b1:'That backup failed its test.', b2:'Good: the newest backup that has passed a test restore. You lose one day, not three.', b3:'Safe, but you lose two extra days of work when a newer tested backup exists.'}[b.choices.d2]) : null) : null,
-    b.choices.d2 === 'b2' ? el('div', {class:'dt-bstep'}, el('span', {class:'ol-kicker'}, 'DECISION 3'), el('h4', {}, 'Who needs to know?'),
-      choice('d3', [['nobody', 'Nobody — it’s an IT matter'], ['owners', 'Tell data owners which day of changes must be re-entered, and record the decision'], ['everyone', 'Email all customers immediately']]),
-      b.choices.d3 ? el('p', {class:`tl-review ${b.choices.d3 === 'owners' ? 'good' : 'warn'}`}, {nobody:'Teams will keep working without knowing yesterday’s changes are gone.', everyone:'Disproportionate — customer data wasn’t lost. Tell the people who need to act.', owners:'Recovery decision documented. That closes the secondary incident.'}[b.choices.d3]) : null) : null,
+        b.tested.includes(x.id) ? el('em', {}, x.test) : el('button', {type:'button', class:'ol-btn ol-btn-quiet', disabled:Boolean(c.d2), onclick:() => { b.tested.push(x.id); save(); renderBonus(); }}, 'Run test restore')))),
+      choice('d2', BACKUPS.map(x => [x.id, 'Use ' + x.name])), result('d2')) : null,
+    c.d2 ? el('div', {class:'dt-bstep'}, el('span', {class:'ol-kicker'}, 'DECISION 3 · FINAL'), el('h4', {}, 'Who needs to know?'),
+      choice('d3', [['nobody', 'Nobody — it’s an IT matter'], ['owners', 'Tell data owners which day of changes must be re-entered, and record the decision'], ['everyone', 'Email all customers immediately']]), result('d3')) : null,
+    c.d3 ? el('div', {class:'dt-bstep dt-outcome'}, el('span', {class:'ol-kicker'}, 'OUTCOME'),
+      el('h4', {}, ['d1', 'd2', 'd3'].filter(k => out[k][c[k]][0] === 'good').length === 3 ? 'Clean recovery. Every call was the right one.' : `${['d1', 'd2', 'd3'].filter(k => out[k][c[k]][0] === 'good').length} of 3 calls were the best option.`),
+      el('p', {}, 'Your choices are locked in — this is the recovery your team delivered.')) : null,
   ];
   fill('dt-bonus', steps);
 }
-function choice(key, options, disabledReason = () => null) {
-  return el('div', {class:'tl-classify'}, options.map(([v, l]) => el('button', {type:'button', class:'ol-btn', 'aria-pressed':String(sim.bonus.choices[key] === v), disabled:Boolean(disabledReason(v)), title:disabledReason(v) || null,
-    onclick:() => { sim.bonus.choices[key] = v; save(); renderBonus(); refreshCheckpoints(); }}, l)));
+function choice(key, options) {
+  const made = sim.bonus.choices[key];
+  return el('div', {class:'tl-classify'}, options.map(([v, l]) => el('button', {type:'button', class:'ol-btn', 'aria-pressed':String(made === v), disabled:Boolean(made),
+    onclick:() => { if (sim.bonus.choices[key]) return; sim.bonus.choices[key] = v; save(); renderBonus(); refreshCheckpoints(); }}, l)));
 }
 
 /* ======================================================================
  * Chrome, checkpoints, boot
  * ==================================================================== */
-function banner(message, kind = 'info') { const b = $('dt-banner'); b.textContent = message; b.dataset.kind = kind; }
+function banner(message, kind = 'info') { const b = $('dt-banner'); b.hidden = false; b.textContent = message; b.dataset.kind = kind; }
 function selectTab(tab) {
   document.querySelectorAll('[data-tab]').forEach(b => b.setAttribute('aria-selected', String(b.dataset.tab === tab)));
   document.querySelectorAll('[data-panel]').forEach(p => { p.hidden = p.dataset.panel !== tab; });
@@ -429,10 +479,9 @@ function wire() {
     n.addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); selectSite(n.dataset.site); } });
   });
   $('dt-order-reset').addEventListener('click', () => { sim.order = []; save(); renderOrder(); refreshCheckpoints(); });
-  $('dt-restart').addEventListener('click', () => { if (window.confirm('Restart the office simulation from 08:47? Your server results are not affected.')) { sim.office = freshOffice(); afterAction(); } });
-  $('dt-reset-sim').addEventListener('click', () => { if (window.confirm('Clear the simulation on this computer? Official server results are not affected.')) { store.clear(); location.reload(); } });
+  $('dt-reset-sim').addEventListener('click', staffReset);
   $('dt-intel-entry').append(codeInput({...CODES.intel, label:'Intel code from Workstation A', otherTypes:OTHER, onAccept:v => { sim.partnerIntel = v; save(); renderRoom(); renderFloor(); }}));
-  hintPanel('dt-hints-a', ['Visit every marker, and try more than one action at each. The car park and entrance clues only make sense together.',
+  hintPanel('dt-hints-a', ['Visit every marker — including the café across the road — and try more than one action at each. The car park and entrance clues only make sense together.',
     'Social engineering means tricking people rather than hacking computers. An emergency is the perfect cover for it.',
     'Compare the times: when did the van arrive, when was the crash, when was the badge used? Then ask the operator who they actually sent.']);
   hintPanel('dt-hints-b', ['Start in the server room: compare battery runtime with how long power is needed. Then visit every room with a pulsing alert.',
@@ -453,8 +502,30 @@ async function boot() {
   if (sim.site) selectSite(sim.site); else renderSite();
   renderBoard(); renderReports(); renderIntelCode(); renderFloor(); renderRoom(); renderOfficeStatus(); renderResponseCode();
   buildCheckpoints();
-  zone.on(state => { renderStatus(state); refreshCheckpoints(); });
+  setupGuides();
+  zone.on(state => { renderStatus(state); refreshCheckpoints(); updateGuides(); });
   selectTab(zone.workstation === 'B' ? 'b' : 'a');
-  banner(`${zone.state.groupName}, Unit ${zone.state.workingUnit}: you are Workstation ${zone.workstation} — ${zone.workstation === 'A' ? 'Incident Intelligence, out on the streets around HQ' : 'Incident Response, inside the building'}. ${STORY.people.facilities.split(' ·')[0]} has asked you to take charge.`);
+  $('dt-banner').hidden = true;
 }
+/* ---------- Guided steps, role lock and timed bonus ---------- */
+const steppers = {};
+function setupGuides() {
+  applyRoleTabs(zone.workstation);
+  for (const view of ['a', 'b', 'joint', 'bonus']) {
+    const panel = document.querySelector(`[data-panel="${view}"]`);
+    if (!panel || panel.getAttribute('aria-hidden') === 'true') continue;
+    const last = panel.querySelectorAll(':scope > .ol-step').length - 1;
+    steppers[view] = stepify(panel, {key:`defend-${zone.state.group}-${zone.state.workingUnit}-${view}`, isDone:i => i === last && zone.passed(view)});
+  }
+}
+function updateGuides() {
+  Object.values(steppers).forEach(s => s?.refresh());
+  const status = applyBonus(zone, store, {onUnlock:() => { const b = $('dt-key-sub'); if (b) b.textContent = 'Saved to your group by the server. You finished early — the optional challenge tab is now open.'; }});
+  if (status === 'late' && zone.zoneStatus().keyEarned) text('dt-key-sub', `Saved to your group by the server. Zone complete — well done. (The optional challenge only opens if you finish with ${BONUS_MIN_MINUTES_LEFT}+ minutes left.)`);
+}
+function staffReset() {
+  if (window.prompt('Staff only: type RESET to clear the simulation on this computer. Official server results are not affected.') !== 'RESET') return;
+  store.clear(); try { Object.keys(sessionStorage).filter(k => k.startsWith('ol2:step:')).forEach(k => sessionStorage.removeItem(k)); } catch {} location.reload();
+}
+
 boot();
